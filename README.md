@@ -72,11 +72,13 @@ pyapicheck discover openapi.yaml --json           # machine-readable output
 
 `pyapicheck` today parses **declared** API surface from an OpenAPI spec. It
 does not yet do runtime traffic discovery, behavioral baselining, or agent/
-MCP authorization — those are the next layers (see the roadmap in the
-product strategy doc). Sensitive-field classification is a lightweight
-keyword heuristic (`core/src/classify.rs`), not an NLP model — it's designed
-to be swapped for something like Microsoft Presidio without changing the
-public API.
+MCP authorization — those are the next layers. See [ROADMAP.md](ROADMAP.md)
+for the concrete, phase-by-phase plan from here to the full product vision
+(an authorization and behavior control plane for AI agents and the APIs/MCP
+servers they call). Sensitive-field classification is a lightweight keyword
+heuristic (`core/src/classify.rs`), not an NLP model — it's designed to be
+swapped for something like Microsoft Presidio without changing the public
+API.
 
 ## Development
 
