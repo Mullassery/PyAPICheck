@@ -1,0 +1,139 @@
+openapi: 3.0.3
+info:
+  title: Commerce API
+  version: "1.3.0"
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Customer:
+      type: object
+      properties:
+        customer_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        phone_number:
+          type: string
+    Order:
+      type: object
+      properties:
+        order_id:
+          type: string
+        customer_id:
+          type: string
+        total_amount:
+          type: number
+    PaymentRequest:
+      type: object
+      properties:
+        card_number:
+          type: string
+        cvv:
+          type: string
+        amount:
+          type: number
+    RefundRequest:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+        account_number:
+          type: string
+        amount:
+          type: number
+paths:
+  /api/v1/customers:
+    post:
+      operationId: createCustomer
+      summary: Create a customer
+      tags: [customers]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Customer"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+  /api/v1/customers/{id}:
+    get:
+      operationId: getCustomer
+      summary: Get a customer by ID
+      tags: [customers]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+  /api/v1/orders/{id}:
+    get:
+      operationId: getOrder
+      summary: Get an order by ID
+      tags: [orders]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+  /api/v1/payments:
+    post:
+      operationId: createPayment
+      summary: Charge a payment method
+      tags: [payments]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRequest"
+      responses:
+        "201":
+          description: Created
+  /api/v1/refunds:
+    post:
+      # BUG: no security override here, and the top-level default is
+      # accidentally excluded from this build's deploy config — this endpoint
+      # ships with no auth in production despite handling financial data.
+      security: []
+      operationId: createRefund
+      summary: Issue a refund
+      tags: [payments]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundRequest"
+      responses:
+        "201":
+          description: Created
+  /api/v1/users/{id}:
+    delete:
+      # BUG: destructive operation with no auth requirement declared at all.
+      security: []
+      summary: Delete a user
+      tags: [users]
+      responses:
+        "204":
+          description: No content
+  /api/v1/health:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      deprecated: true
+      responses:
+        "200":
+          description: OK

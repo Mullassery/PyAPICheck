@@ -1,0 +1,14 @@
+[package]
+name = "pyapicheck-bindings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyapicheck-core = { path = "../core" }
+serde_json = "1"
+pyo3 = { version = "0.22", features = ["abi3-py39"] }

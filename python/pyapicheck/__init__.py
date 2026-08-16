@@ -1,0 +1,31 @@
+"""pyapicheck: discover an API inventory from an OpenAPI spec, with every
+risk score traced back to the named factors that produced it.
+
+    >>> import pyapicheck
+    >>> inventory = pyapicheck.discover("openapi.yaml")
+    >>> inventory["summary"]["high_or_critical"]
+    2
+
+The heavy lifting (parsing, classification, scoring) happens in the Rust
+core (`pyapicheck._core`); this package is a thin, inspectable Python layer
+on top of it plus the `pyapicheck` CLI.
+"""
+
+import json
+from importlib import metadata as _metadata
+
+from . import _core
+
+
+def discover(spec_path: str) -> dict:
+    """Parse the OpenAPI spec at `spec_path` and return the risk-scored
+    inventory as a plain dict (JSON-serializable)."""
+    return json.loads(_core.discover(spec_path))
+
+
+try:
+    __version__ = _metadata.version("pyapicheck")
+except _metadata.PackageNotFoundError:  # pragma: no cover - editable/dev installs
+    __version__ = "0.0.0"
+
+__all__ = ["discover", "__version__"]

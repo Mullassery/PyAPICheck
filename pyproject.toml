@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pyapicheck"
+version = "0.1.0"
+description = "Discover APIs from an OpenAPI spec, classify sensitive fields, and score risk — with every score traceable to a named reason, not a black-box number."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Security",
+]
+
+[project.scripts]
+pyapicheck = "pyapicheck.cli:main"
+
+[tool.maturin]
+manifest-path = "bindings/Cargo.toml"
+module-name = "pyapicheck._core"
+python-source = "python"
+features = ["pyo3/extension-module"]
