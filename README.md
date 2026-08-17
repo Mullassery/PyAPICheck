@@ -4,7 +4,7 @@ Discover an API inventory from an OpenAPI spec, flag likely-sensitive fields,
 and score every endpoint's risk — with every point on the score traced back
 to a named, human-readable reason. No opaque number.
 
-This is the OSS discovery core for a broader idea (a control plane for
+This is the free-to-use discovery core for a broader idea (a control plane for
 authorizing what AI agents are allowed to do with the APIs they call) — see
 the accompanying product vision doc. `pyapicheck` itself stands alone: point
 it at an OpenAPI spec and it tells you, in about a second, which endpoints
@@ -89,4 +89,5 @@ maturin develop                 # rebuild the extension into .venv after Rust ch
 
 ## License
 
-Apache-2.0
+Proprietary License — Free to use with explicit attribution. See
+[LICENSE](LICENSE).
