@@ -172,6 +172,19 @@ that produces a concrete, applicable Cedar policy fix.
 
 ---
 
+## Differentiator gap (external critique, verified)
+
+The tool is local-first by construction already (no network-client
+dependency anywhere in the Rust core or Python CLI — `core/Cargo.toml`
+only pulls in `serde`/`serde_json`/`serde_yaml`), so "not genuinely
+offline" doesn't apply. But there is currently no automated remediation —
+`risk.rs` only scores/explains findings, and the closest roadmap item
+(Phase 6, Cedar policy recommendations) is explicitly advisory-only, "a
+human applies it," and scoped to agent/MCP auth policy, not to fixing the
+underlying OpenAPI spec or auth config. Given Postman/pytest/Schemathesis
+already own general API testing, an automated spec-fix or auth-config-patch
+generator would be a real differentiator worth scoping as its own phase.
+
 ## What's explicitly not on this roadmap
 
 Matches the vision doc's non-goals: no general BOLA/posture scanner as a
