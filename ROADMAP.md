@@ -172,18 +172,37 @@ that produces a concrete, applicable Cedar policy fix.
 
 ---
 
-## Differentiator gap (external critique, verified)
+## Differentiator gap (external critique, verified) — Done
 
 The tool is local-first by construction already (no network-client
 dependency anywhere in the Rust core or Python CLI — `core/Cargo.toml`
 only pulls in `serde`/`serde_json`/`serde_yaml`), so "not genuinely
-offline" doesn't apply. But there is currently no automated remediation —
-`risk.rs` only scores/explains findings, and the closest roadmap item
+offline" doesn't apply. This left one real gap: no automated remediation —
+`risk.rs` only scored/explained findings, and the closest roadmap item
 (Phase 6, Cedar policy recommendations) is explicitly advisory-only, "a
 human applies it," and scoped to agent/MCP auth policy, not to fixing the
-underlying OpenAPI spec or auth config. Given Postman/pytest/Schemathesis
-already own general API testing, an automated spec-fix or auth-config-patch
-generator would be a real differentiator worth scoping as its own phase.
+underlying OpenAPI spec or auth config.
+
+**Implemented:** `pyapicheck remediate <spec>` (`core/src/remediate.rs`,
+`core/src/text_patch.rs`). It closes the gap for the subset of findings
+that have one safe, mechanical, unambiguous fix:
+- `no_auth`: adds a `security` requirement to the operation, but only
+  referencing a scheme the spec *already declares* in
+  `components.securitySchemes` — it never invents an auth mechanism, only
+  wires up one the API author already set up and forgot to apply on that
+  operation.
+- `missing_metadata`: adds a deterministic `operationId` derived from the
+  method + path.
+
+Findings with no safe automatic fix (`sensitive_data`,
+`unauthenticated_sensitive_data`, `deprecated_still_live`) remain
+advisory-only by design — deciding what a sensitive field *should* do, or
+whether a deprecated endpoint can be removed, is a business decision this
+tool has no basis to make. `--apply` writes the fix to disk; without it,
+`remediate` only prints the unified diff. The patch is applied as a
+targeted, format-preserving text edit (not a full parse-and-re-serialize
+round trip), so the diff is minimal and existing comments/key order/quote
+style in the spec are untouched.
 
 ## What's explicitly not on this roadmap
 

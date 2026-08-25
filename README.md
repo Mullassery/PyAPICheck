@@ -68,6 +68,50 @@ pyapicheck discover openapi.yaml --fail-on-high   # exit 2 if anything is HIGH/C
 pyapicheck discover openapi.yaml --json           # machine-readable output
 ```
 
+### Automated remediation
+
+For the subset of findings that have one safe, mechanical fix, `remediate`
+generates (and can apply) a real patch to the spec — not just a report:
+
+```bash
+pyapicheck remediate openapi.yaml            # dry run: prints a diff, changes nothing
+pyapicheck remediate openapi.yaml --apply    # writes the fix back to the file
+```
+
+```
+2 fixable finding(s):
+
+  [no_auth] POST    /api/v1/refunds              Add `security: [{bearerAuth: []}]` to POST /api/v1/refunds (references the already-declared 'bearerAuth' scheme)
+  [no_auth] DELETE  /api/v1/users/{id}           Add `security: [{bearerAuth: []}]` to DELETE /api/v1/users/{id} (references the already-declared 'bearerAuth' scheme)
+
+--- a/openapi.yaml
++++ b/openapi.yaml
+@@ -108,7 +108,7 @@
+       # BUG: no security override here, and the top-level default is
+       # accidentally excluded from this build's deploy config — this endpoint
+       # ships with no auth in production despite handling financial data.
+-      security: []
++      security: [{bearerAuth: []}]
+       operationId: createRefund
+```
+
+Two findings are fixable today:
+- `no_auth` — adds a `security` requirement, but only referencing a scheme
+  the spec *already declares* in `components.securitySchemes`. It never
+  invents an auth mechanism, only wires up one the API author set up and
+  forgot to apply on that operation.
+- `missing_metadata` — adds a deterministic `operationId` derived from the
+  method + path.
+
+`sensitive_data`, `unauthenticated_sensitive_data`, and
+`deprecated_still_live` stay advisory-only by design — deciding what a
+sensitive field *should* do, or whether a deprecated endpoint can be
+removed, is a business decision this tool has no basis to make for you.
+The patch is a targeted, format-preserving text edit, not a full
+parse-and-re-serialize round trip — comments, key order, and quote style
+elsewhere in the file are untouched, so the diff stays minimal and
+reviewable.
+
 ## What this is (and isn't) — yet
 
 `pyapicheck` today parses **declared** API surface from an OpenAPI spec. It

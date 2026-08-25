@@ -23,9 +23,18 @@ def discover(spec_path: str) -> dict:
     return json.loads(_core.discover(spec_path))
 
 
+def remediate(spec_path: str) -> dict:
+    """Compute the remediation plan for the OpenAPI spec at `spec_path`:
+    a `fixes` list (each a safe, mechanical spec change) and
+    `patched_spec_text` (the spec with every fix applied, in the same
+    format -- YAML or JSON -- as the input). Nothing is written to disk;
+    the caller decides whether to write `patched_spec_text` back."""
+    return json.loads(_core.remediate(spec_path))
+
+
 try:
     __version__ = _metadata.version("pyapicheck")
 except _metadata.PackageNotFoundError:  # pragma: no cover - editable/dev installs
     __version__ = "0.0.0"
 
-__all__ = ["discover", "__version__"]
+__all__ = ["discover", "remediate", "__version__"]
