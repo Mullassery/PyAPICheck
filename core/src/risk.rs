@@ -78,8 +78,7 @@ pub fn score_endpoint(ep: &EndpointDraft) -> RiskScore {
     if ep.deprecated {
         factors.push(RiskFactor {
             id: "deprecated_still_live".to_string(),
-            description: "Endpoint is marked deprecated in the spec but still present"
-                .to_string(),
+            description: "Endpoint is marked deprecated in the spec but still present".to_string(),
             weight: 10,
             severity: "MEDIUM".to_string(),
         });

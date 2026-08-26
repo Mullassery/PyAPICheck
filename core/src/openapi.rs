@@ -62,10 +62,17 @@ pub fn parse_spec(root: &Value) -> Result<(String, String, Vec<EndpointDraft>), 
             let tags = op
                 .get("tags")
                 .and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|t| t.as_str().map(String::from)).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|t| t.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default();
 
-            let effective_security = op.get("security").cloned().or_else(|| global_security.clone());
+            let effective_security = op
+                .get("security")
+                .cloned()
+                .or_else(|| global_security.clone());
             let (authenticated, auth_schemes) = extract_security(&effective_security);
 
             let mut sensitive_fields: Vec<SensitiveField> = Vec::new();
@@ -75,7 +82,12 @@ pub fn parse_spec(root: &Value) -> Result<(String, String, Vec<EndpointDraft>), 
             if let Some(responses) = op.get("responses").and_then(|v| v.as_object()) {
                 for resp in responses.values() {
                     if let Some(content) = resp.get("content") {
-                        collect_sensitive_from_content(content, root, "response", &mut sensitive_fields);
+                        collect_sensitive_from_content(
+                            content,
+                            root,
+                            "response",
+                            &mut sensitive_fields,
+                        );
                     }
                 }
             }
