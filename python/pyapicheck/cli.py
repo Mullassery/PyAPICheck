@@ -3,9 +3,12 @@
 import argparse
 import difflib
 import json
+import os
 import sys
 
+from . import diff as _diff_specs
 from . import discover as _discover_inventory
+from . import discover_directory as _discover_directory
 from . import remediate as _remediate_spec
 
 _LEVEL_COLORS = {
@@ -58,19 +61,73 @@ def _print_report(inventory: dict) -> None:
 
 
 def _cmd_discover(args: argparse.Namespace) -> int:
+    is_directory = os.path.isdir(args.spec)
     try:
-        inventory = _discover_inventory(args.spec)
+        if is_directory:
+            inventories = _discover_directory(args.spec)
+        else:
+            inventories = [_discover_inventory(args.spec)]
     except Exception as exc:  # surfaces parser/classification errors directly to the user
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
     if args.json:
-        print(json.dumps(inventory, indent=2))
+        print(json.dumps(inventories if is_directory else inventories[0], indent=2))
     else:
-        _print_report(inventory)
+        if is_directory:
+            print(f"\n{len(inventories)} spec(s) found under {args.spec}")
+        for inventory in inventories:
+            _print_report(inventory)
+        if is_directory and len(inventories) > 1:
+            total_high = sum(i["summary"]["high_or_critical"] for i in inventories)
+            total_endpoints = sum(i["summary"]["total_endpoints"] for i in inventories)
+            print(
+                f"--- aggregate: {total_endpoints} endpoints across "
+                f"{len(inventories)} specs, {total_high} high/critical ---\n"
+            )
 
-    if args.fail_on_high and inventory["summary"]["high_or_critical"] > 0:
+    total_high_or_critical = sum(i["summary"]["high_or_critical"] for i in inventories)
+    if args.fail_on_high and total_high_or_critical > 0:
         return 2
+    return 0
+
+
+def _cmd_diff(args: argparse.Namespace) -> int:
+    try:
+        report = _diff_specs(args.old_spec, args.new_spec)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0
+
+    print(f"\ndrift: {args.old_spec} -> {args.new_spec}\n")
+
+    if report["added"]:
+        print(f"added ({len(report['added'])}):")
+        for ep in report["added"]:
+            print(f"  + {ep['method']:<7} {ep['path']}")
+        print()
+
+    if report["removed"]:
+        print(f"removed ({len(report['removed'])}):")
+        for ep in report["removed"]:
+            print(f"  - {ep['method']:<7} {ep['path']}")
+        print()
+
+    if report["changed"]:
+        print(f"changed ({len(report['changed'])}):")
+        for ep in report["changed"]:
+            print(f"  ~ {ep['method']:<7} {ep['path']}")
+            for change in ep["changes"]:
+                print(f"      {change['field']}: {change['before']} -> {change['after']}")
+        print()
+
+    if not (report["added"] or report["removed"] or report["changed"]):
+        print("no drift detected\n")
+
     return 0
 
 
@@ -120,9 +177,16 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     discover_parser = sub.add_parser(
-        "discover", help="Discover a risk-scored API inventory from an OpenAPI spec"
+        "discover",
+        help="Discover a risk-scored API inventory from a spec file or a directory of specs",
     )
-    discover_parser.add_argument("spec", help="Path to an OpenAPI 3.x YAML or JSON file")
+    discover_parser.add_argument(
+        "spec",
+        help=(
+            "Path to an OpenAPI 3.x YAML/JSON file, a Postman Collection v2.1 JSON "
+            "export, or a directory to search recursively for either"
+        ),
+    )
     discover_parser.add_argument(
         "--json", action="store_true", help="Output raw JSON instead of a report"
     )
@@ -145,6 +209,16 @@ def main(argv=None) -> int:
         "--json", action="store_true", help="Also print the full remediation plan as JSON"
     )
     remediate_parser.set_defaults(func=_cmd_remediate)
+
+    diff_parser = sub.add_parser(
+        "diff", help="Diff two spec snapshots and report added/removed/changed endpoints"
+    )
+    diff_parser.add_argument("old_spec", help="Path to the older OpenAPI 3.x YAML or JSON file")
+    diff_parser.add_argument("new_spec", help="Path to the newer OpenAPI 3.x YAML or JSON file")
+    diff_parser.add_argument(
+        "--json", action="store_true", help="Output the raw drift report as JSON"
+    )
+    diff_parser.set_defaults(func=_cmd_diff)
 
     args = parser.parse_args(argv)
     return args.func(args)

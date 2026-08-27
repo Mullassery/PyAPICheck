@@ -1,26 +1,46 @@
 pub mod classify;
+pub mod discover_dir;
+pub mod drift;
 pub mod model;
 pub mod openapi;
+pub mod postman;
 pub mod remediate;
 pub mod risk;
 pub mod text_patch;
 
+use classify::{Classifier, KeywordClassifier};
 use model::{summarize, Endpoint, Inventory};
 use remediate::SpecFix;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
 
-/// Parse OpenAPI spec text (YAML or JSON, auto-detected) into a full,
-/// risk-scored inventory.
+pub use discover_dir::discover_from_directory;
+pub use drift::{diff_inventories, DriftReport};
+
+/// Parse spec text (OpenAPI YAML/JSON, or a Postman Collection v2.1 JSON
+/// export — auto-detected by shape) into a full, risk-scored inventory,
+/// using the default keyword classifier.
 pub fn discover_from_str(spec_text: &str, source_label: &str) -> Result<Inventory, String> {
+    discover_from_str_with_classifier(spec_text, source_label, &KeywordClassifier)
+}
+
+pub fn discover_from_str_with_classifier(
+    spec_text: &str,
+    source_label: &str,
+    classifier: &dyn Classifier,
+) -> Result<Inventory, String> {
     let root: serde_json::Value = if spec_text.trim_start().starts_with('{') {
         serde_json::from_str(spec_text).map_err(|e| format!("invalid JSON: {e}"))?
     } else {
         serde_yaml::from_str(spec_text).map_err(|e| format!("invalid YAML: {e}"))?
     };
 
-    let (title, api_version, drafts) = openapi::parse_spec(&root)?;
+    let (title, api_version, drafts) = if postman::is_postman_collection(&root) {
+        postman::parse_collection(&root, classifier)?
+    } else {
+        openapi::parse_spec_with_classifier(&root, classifier)?
+    };
 
     let endpoints: Vec<Endpoint> = drafts
         .into_iter()
@@ -58,6 +78,16 @@ pub fn discover_from_file(path: &Path) -> Result<Inventory, String> {
     let text =
         fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
     discover_from_str(&text, &path.display().to_string())
+}
+
+/// Discover both spec files and diff the resulting inventories. Purely a
+/// diff over two file paths already on disk — resolving two Git revisions
+/// to file paths is the caller's job (e.g. `git show <rev>:<path>` written
+/// to a temp file), not something `core` does itself.
+pub fn diff_files(old_path: &Path, new_path: &Path) -> Result<DriftReport, String> {
+    let old = discover_from_file(old_path)?;
+    let new = discover_from_file(new_path)?;
+    Ok(diff_inventories(&old, &new))
 }
 
 #[derive(Debug, Clone, Serialize)]

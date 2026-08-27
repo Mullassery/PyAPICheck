@@ -6,15 +6,25 @@
 //! `properties`/`items` far enough to find field names worth classifying. That
 //! is sufficient for discovery + classification; it is not a spec validator.
 
-use crate::classify::classify_field;
-use crate::model::{EndpointDraft, SensitiveField};
+use crate::classify::{Classifier, KeywordClassifier};
+use crate::model::{dedupe_sensitive_fields, EndpointDraft, SensitiveField};
 use serde_json::Value;
 use std::collections::HashSet;
 
 const HTTP_METHODS: &[&str] = &["get", "post", "put", "patch", "delete"];
 const MAX_SCHEMA_DEPTH: u8 = 4;
 
+/// Parse an OpenAPI spec using the default keyword classifier. Kept as the
+/// stable public entrypoint; use `parse_spec_with_classifier` to supply an
+/// alternate `Classifier` impl.
 pub fn parse_spec(root: &Value) -> Result<(String, String, Vec<EndpointDraft>), String> {
+    parse_spec_with_classifier(root, &KeywordClassifier)
+}
+
+pub fn parse_spec_with_classifier(
+    root: &Value,
+    classifier: &dyn Classifier,
+) -> Result<(String, String, Vec<EndpointDraft>), String> {
     let title = root
         .pointer("/info/title")
         .and_then(|v| v.as_str())
@@ -77,7 +87,13 @@ pub fn parse_spec(root: &Value) -> Result<(String, String, Vec<EndpointDraft>), 
 
             let mut sensitive_fields: Vec<SensitiveField> = Vec::new();
             if let Some(content) = op.pointer("/requestBody/content") {
-                collect_sensitive_from_content(content, root, "request", &mut sensitive_fields);
+                collect_sensitive_from_content(
+                    content,
+                    root,
+                    "request",
+                    classifier,
+                    &mut sensitive_fields,
+                );
             }
             if let Some(responses) = op.get("responses").and_then(|v| v.as_object()) {
                 for resp in responses.values() {
@@ -86,6 +102,7 @@ pub fn parse_spec(root: &Value) -> Result<(String, String, Vec<EndpointDraft>), 
                             content,
                             root,
                             "response",
+                            classifier,
                             &mut sensitive_fields,
                         );
                     }
@@ -110,11 +127,6 @@ pub fn parse_spec(root: &Value) -> Result<(String, String, Vec<EndpointDraft>), 
     drafts.sort_by(|a, b| a.path.cmp(&b.path).then(a.method.cmp(&b.method)));
 
     Ok((title, api_version, drafts))
-}
-
-fn dedupe_sensitive_fields(fields: &mut Vec<SensitiveField>) {
-    let mut seen: HashSet<(String, String)> = HashSet::new();
-    fields.retain(|f| seen.insert((f.name.clone(), f.location.clone())));
 }
 
 /// Returns (authenticated, scheme_names). An explicit empty `security: []`
@@ -143,6 +155,7 @@ fn collect_sensitive_from_content(
     content: &Value,
     root: &Value,
     location: &str,
+    classifier: &dyn Classifier,
     out: &mut Vec<SensitiveField>,
 ) {
     let content_obj = match content.as_object() {
@@ -151,7 +164,7 @@ fn collect_sensitive_from_content(
     };
     for media in content_obj.values() {
         if let Some(schema) = media.get("schema") {
-            collect_fields(schema, root, location, out, 0);
+            collect_fields(schema, root, location, classifier, out, 0);
         }
     }
 }
@@ -176,6 +189,7 @@ fn collect_fields(
     schema: &Value,
     root: &Value,
     location: &str,
+    classifier: &dyn Classifier,
     out: &mut Vec<SensitiveField>,
     depth: u8,
 ) {
@@ -186,13 +200,13 @@ fn collect_fields(
     let resolved = resolve_ref(schema, root, &mut HashSet::new());
 
     if let Some(items) = resolved.get("items") {
-        collect_fields(items, root, location, out, depth + 1);
+        collect_fields(items, root, location, classifier, out, depth + 1);
         return;
     }
 
     if let Some(props) = resolved.get("properties").and_then(|v| v.as_object()) {
         for (name, prop_schema) in props {
-            if let Some(classification) = classify_field(name) {
+            if let Some(classification) = classifier.classify(name) {
                 out.push(SensitiveField {
                     name: name.clone(),
                     category: classification.category.to_string(),
@@ -202,8 +216,55 @@ fn collect_fields(
             }
             let resolved_prop = resolve_ref(prop_schema, root, &mut HashSet::new());
             if resolved_prop.get("properties").is_some() || resolved_prop.get("items").is_some() {
-                collect_fields(&resolved_prop, root, location, out, depth + 1);
+                collect_fields(&resolved_prop, root, location, classifier, out, depth + 1);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::classify::FieldClassification;
+
+    struct NeverClassifier;
+    impl Classifier for NeverClassifier {
+        fn classify(&self, _field_name: &str) -> Option<FieldClassification> {
+            None
+        }
+    }
+
+    #[test]
+    fn alternate_classifier_is_actually_used() {
+        let root: Value = serde_json::from_str(
+            r#"{
+                "info": {"title": "t", "version": "1"},
+                "paths": {
+                    "/x": {
+                        "get": {
+                            "responses": {
+                                "200": {
+                                    "content": {
+                                        "application/json": {
+                                            "schema": {
+                                                "type": "object",
+                                                "properties": {"email": {"type": "string"}}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let (_, _, default_drafts) = parse_spec(&root).unwrap();
+        assert!(!default_drafts[0].sensitive_fields.is_empty());
+
+        let (_, _, stub_drafts) = parse_spec_with_classifier(&root, &NeverClassifier).unwrap();
+        assert!(stub_drafts[0].sensitive_fields.is_empty());
     }
 }

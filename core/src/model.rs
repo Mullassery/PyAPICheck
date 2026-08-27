@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SensitiveField {
@@ -68,6 +69,14 @@ pub struct Inventory {
     pub api_version: String,
     pub endpoints: Vec<Endpoint>,
     pub summary: InventorySummary,
+}
+
+/// Drop duplicate (name, location) sensitive-field entries — shared by every
+/// discovery source (OpenAPI, Postman, ...) since each may visit the same
+/// field name more than once while walking a schema/body.
+pub(crate) fn dedupe_sensitive_fields(fields: &mut Vec<SensitiveField>) {
+    let mut seen: HashSet<(String, String)> = HashSet::new();
+    fields.retain(|f| seen.insert((f.name.clone(), f.location.clone())));
 }
 
 pub fn summarize(endpoints: &[Endpoint]) -> InventorySummary {

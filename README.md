@@ -61,6 +61,33 @@ for endpoint in inventory["endpoints"]:
         print(endpoint["method"], endpoint["path"], endpoint["risk"]["factors"])
 ```
 
+### Discovering a whole repo, or a Postman collection
+
+`discover` isn't limited to one hand-picked OpenAPI file:
+
+```bash
+pyapicheck discover ./services/          # walks the tree, discovers every openapi/swagger file it finds
+pyapicheck discover collection.json      # Postman Collection v2.1 export — same risk-scored report
+```
+
+A directory with multiple services prints one report per spec plus an
+aggregate total; a Postman collection is auto-detected by shape (no flag
+needed) and normalized into the same report format as an OpenAPI spec —
+sensitive fields are classified from the collection's example request
+bodies/query params instead of a schema, since Postman collections don't
+carry one.
+
+### Drift detection
+
+```bash
+pyapicheck diff old-openapi.yaml new-openapi.yaml
+```
+
+Reports endpoints added, removed, or changed (authentication, deprecation,
+or sensitive-field differences) between two spec snapshots — e.g. two Git
+revisions checked out to disk. This is the first "behavior changed" signal,
+still fully static (no traffic required).
+
 ### In CI
 
 ```bash

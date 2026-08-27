@@ -99,6 +99,25 @@ pub fn classify_field(field_name: &str) -> Option<FieldClassification> {
     None
 }
 
+/// A pluggable sensitive-field classifier. `openapi::parse_spec` and
+/// `postman::parse_collection` take `&dyn Classifier` rather than calling
+/// `classify_field` directly, so a caller (e.g. a future Python-side
+/// Presidio-backed classifier) can supply an alternate implementation
+/// without either discovery walker needing to change.
+pub trait Classifier {
+    fn classify(&self, field_name: &str) -> Option<FieldClassification>;
+}
+
+/// The default classifier: the keyword ruleset above.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct KeywordClassifier;
+
+impl Classifier for KeywordClassifier {
+    fn classify(&self, field_name: &str) -> Option<FieldClassification> {
+        classify_field(field_name)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

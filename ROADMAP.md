@@ -32,24 +32,76 @@ under a second, self-hosted, zero infrastructure required.
 ## Phase 1 — Broaden discovery, still spec-only
 
 Goal: don't need runtime traffic yet, but stop depending on a single
-hand-picked spec file.
+hand-picked spec file. Every sub-phase below is spec-only (no DB, no
+network calls, no live traffic) and independently demo-able — ordered so
+each one builds on the last without forward references.
 
-- [ ] Discover specs automatically from a directory / Git repo (walk for
-      `openapi.y*ml`, `swagger.json`, common paths like `/docs`, `/api-docs`).
-- [ ] Postman collection import as a second discovery source, normalized
-      into the same `EndpointDraft` shape as the OpenAPI parser.
-- [ ] OpenAPI drift detection: diff two spec snapshots (e.g. two Git
-      revisions) and report added/removed/changed endpoints and fields —
-      this is the first real "behavior changed" signal, still fully static.
-- [ ] Pluggable classifier trait in `core` so the keyword classifier can be
-      swapped or augmented (e.g. a Python-side Presidio call) without
-      changing callers.
-- [ ] `pyapicheck discover <directory>` — point at a repo, not a single file.
+### 1.1 Pluggable classifier trait (`core/src/classify.rs`) — foundation, do first
+- [x] Define a `Classifier` trait (`fn classify(&self, field_name: &str) -> Option<FieldClassification>`).
+- [x] Wrap the existing keyword rules in a `KeywordClassifier` default impl.
+- [x] Thread the classifier through `openapi::parse_spec` (and, later,
+      the Postman parser in 1.5) so callers can supply an alternate impl
+      without touching the discovery walk logic.
+- [x] `discover_from_str`/`discover_from_file` keep using `KeywordClassifier`
+      by default — no public API break.
+- **Demo:** a second, trivial `Classifier` impl (e.g. an always-`None`
+  stub) swapped in via a unit test, proving the discovery path never
+  hardcodes the keyword ruleset.
 
-**Demo:** point `pyapicheck` at a real Git repo with multiple services and
-get one unified inventory, plus a drift report between two commits.
+### 1.2 Directory / repo spec discovery (`core/src/discover_dir.rs`)
+- [x] Recursively walk a directory (skipping `.git`, `target`, `node_modules`,
+      `.venv`, hidden dirs) for filenames matching `openapi.y*ml`,
+      `openapi.json`, `swagger.y*ml`, `swagger.json`.
+- [x] Each match is discovered independently (one repo can host several
+      services); return `Vec<Inventory>`, sorted by source path for
+      deterministic output.
+- [x] A directory with zero matching specs is not an error — it returns
+      an empty vector, since "no APIs found" is a valid, reportable state.
+- **Demo:** `pyapicheck discover <directory>` against a fixture repo tree
+  with two nested specs returns two inventories in one run.
 
-**Explicitly deferred:** anything requiring live traffic — that's Phase 2.
+### 1.3 CLI + bindings wiring for directory discovery
+- [x] `bindings`: new `discover_directory` PyO3 function returning a JSON
+      array of inventories.
+- [x] `python/pyapicheck/cli.py`: `discover` command detects whether `spec`
+      is a file or directory (`os.path.isdir`) and dispatches accordingly;
+      directory mode prints one report per discovered spec plus an
+      aggregate total.
+- **Demo:** same CLI entrypoint (`pyapicheck discover <path>`) transparently
+  handles both a single spec file (existing behavior, unchanged) and a
+  directory (new).
+
+### 1.4 OpenAPI drift detection (`core/src/drift.rs`)
+- [x] Diff two already-discovered `Inventory` snapshots keyed on
+      `(method, path)`: `added` (new in the second), `removed` (missing
+      from the second), `changed` (same key, but `authenticated`,
+      `auth_schemes`, `deprecated`, or `sensitive_fields` differ).
+- [x] `pyapicheck diff <old-spec> <new-spec>` CLI command — works on two
+      arbitrary spec file paths (e.g. two Git-worktree checkouts, or two
+      revisions saved to disk); no Git integration in `core` itself.
+- **Demo:** two hand-edited fixture specs (one endpoint added, one auth
+  requirement removed) produce a correct, human-readable drift report.
+
+### 1.5 Postman collection import (`core/src/postman.rs`)
+- [x] Parse Postman Collection v2.1 JSON (`info` + recursive `item` array),
+      normalizing each leaf request into the same `EndpointDraft` shape
+      the OpenAPI parser produces — method, path, an `authenticated` flag
+      (collection/item-level `auth` block or an `Authorization` header),
+      and sensitive fields classified from JSON body keys.
+- [x] `discover_from_str`/CLI `discover` auto-detects Postman vs. OpenAPI
+      input by shape (`info`+`item` vs. `paths`) — one command, two input
+      formats, same risk-scored report.
+- **Demo:** `pyapicheck discover <postman_collection.json>` produces a
+  risk-scored report structurally identical to the OpenAPI path.
+
+**Demo (phase exit):** point `pyapicheck` at a real Git repo with multiple
+services and get one unified inventory, plus a drift report between two
+snapshots — all four sub-phases composed together.
+
+**Explicitly deferred:** anything requiring live traffic, a database, or a
+network call — that's Phase 2. Git-native diffing (resolving two
+revisions by SHA rather than two file paths already on disk) is also
+deferred; 1.4 diffs file contents, not repo history.
 
 ---
 
