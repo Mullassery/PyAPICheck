@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SensitiveField {
     pub name: String,
     pub category: String,
@@ -9,7 +9,7 @@ pub struct SensitiveField {
     pub location: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskFactor {
     pub id: String,
     pub description: String,
@@ -17,7 +17,7 @@ pub struct RiskFactor {
     pub severity: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskScore {
     pub score: i32,
     pub level: String,
@@ -37,7 +37,7 @@ pub struct EndpointDraft {
     pub sensitive_fields: Vec<SensitiveField>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Endpoint {
     pub method: String,
     pub path: String,

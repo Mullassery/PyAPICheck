@@ -1,12 +1,15 @@
 pub mod classify;
+pub mod db;
 pub mod discover_dir;
 pub mod drift;
+pub mod lifecycle;
 pub mod model;
 pub mod openapi;
 pub mod postman;
 pub mod remediate;
 pub mod risk;
 pub mod text_patch;
+pub mod traffic;
 
 use classify::{Classifier, KeywordClassifier};
 use model::{summarize, Endpoint, Inventory};
@@ -17,6 +20,28 @@ use std::path::Path;
 
 pub use discover_dir::discover_from_directory;
 pub use drift::{diff_inventories, DriftReport};
+pub use lifecycle::{build_lifecycle_report, LifecycleReport};
+pub use traffic::{parse_access_log, TrafficRecord};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportResult {
+    pub inventory: Inventory,
+    pub lifecycle: LifecycleReport,
+}
+
+/// Discover a spec file and cross-reference it against a parsed gateway
+/// access log to produce a combined risk + lifecycle report.
+pub fn report_from_files(spec_path: &Path, access_log_path: &Path) -> Result<ReportResult, String> {
+    let inventory = discover_from_file(spec_path)?;
+    let log_text = fs::read_to_string(access_log_path)
+        .map_err(|e| format!("failed to read {}: {e}", access_log_path.display()))?;
+    let traffic = parse_access_log(&log_text);
+    let lifecycle = build_lifecycle_report(&inventory, &traffic);
+    Ok(ReportResult {
+        inventory,
+        lifecycle,
+    })
+}
 
 /// Parse spec text (OpenAPI YAML/JSON, or a Postman Collection v2.1 JSON
 /// export — auto-detected by shape) into a full, risk-scored inventory,

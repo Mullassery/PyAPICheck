@@ -105,28 +105,74 @@ deferred; 1.4 diffs file contents, not repo history.
 
 ---
 
-## Phase 2 — Runtime telemetry and observed-vs-declared
+## Phase 2 — Runtime telemetry and observed-vs-declared ✅ done (`v0.3.0`, this commit)
 
 Goal: know what's *actually* being called, not just what's declared.
 
-- [ ] Inventory persistence in PostgreSQL (replace in-memory JSON as the
-      source of truth; `pyapicheck` CLI becomes a thin client over it).
-- [ ] Ingest one traffic source first — gateway access logs (NGINX/Envoy
-      JSON log format) — before attempting OpenTelemetry or eBPF.
-  Reasoning: logs are the lowest-effort source most orgs already have; OTel and eBPF are richer but add deployment complexity that isn't justified until the observed-vs-declared comparison itself is proven valuable.
-- [ ] Observed-vs-declared classification: shadow (observed, not in any
-      spec), zombie (in spec, zero traffic for N days), drifted (response
-      shape differs from declared schema).
-- [ ] `pyapicheck report` gains a traffic-volume column and lifecycle
-      status (active/deprecated/zombie/shadow) per endpoint.
+### 2.1 Gateway access log ingestion (`core/src/traffic.rs`)
+- [x] Parse newline-delimited JSON access logs, normalizing the common
+      NGINX (`request_method`/`request_uri`/`status`) and Envoy
+      (`method`/`path`/`response_code`) field-name variants into one
+      `TrafficRecord { method, path, status, timestamp }` shape.
+- [x] Malformed/unrecognized lines are skipped, not fatal — real gateway
+      logs always have some noise (log-rotation headers, blank lines).
+- **Demo:** a fixture NDJSON log in each format (NGINX-shaped, Envoy-shaped)
+  parses to the same normalized `TrafficRecord` list.
 
-**Demo:** against a real service with gateway logs, correctly flag at
-least one shadow endpoint and one zombie endpoint that the team didn't
-know about.
+### 2.2 Observed-vs-declared classification (`core/src/lifecycle.rs`)
+- [x] Path-template matching: match concrete observed paths
+      (`/widgets/42`) against declared OpenAPI templates
+      (`/widgets/{id}`) by segment count + wildcard-on-`{param}`.
+- [x] `shadow`: observed (method, path) that matches no declared endpoint.
+- [x] `zombie`: declared endpoint with zero matching requests in the
+      supplied log window.
+- [x] `active`: declared endpoint with at least one matching request,
+      annotated with its request count.
+- **Demo:** a fixture spec + a fixture access log with one endpoint never
+  hit and one request to an undeclared path correctly produce one zombie
+  and one shadow finding.
+- **Honesty note on scope:** `drifted` (response shape differs from
+  declared schema) is **not** implemented — plain access logs carry a
+  status code, not a response body, so there is nothing to diff a shape
+  against. Doing this for real needs a body-capturing traffic source
+  (Phase 2's own "before attempting OTel/eBPF" line applies in reverse
+  here: don't fake schema drift off a source that structurally can't
+  support it). Revisit when a body-capturing source is ingested.
+
+### 2.3 `pyapicheck report` CLI command
+- [x] `pyapicheck report <spec> <access-log>` combines discovery +
+      lifecycle classification: prints the usual risk report plus a
+      traffic-volume column and lifecycle status per endpoint, and a
+      separate shadow-endpoints section.
+- [x] `--json` for machine-readable output (inventory + lifecycle report).
+
+### 2.4 Inventory/traffic persistence in PostgreSQL
+- [x] Schema (`core/src/db/schema.sql`): `inventories`, `endpoints`,
+      `traffic_records` tables; an endpoint row keys on
+      `(inventory_id, method, path)`.
+- [x] `core/src/db.rs`: connection + upsert/query functions
+      (`sqlx`, compile-time-unchecked queries — no `DATABASE_URL` needed
+      to build) to persist a discovered `Inventory` and a parsed traffic
+      batch, and to re-read them back.
+- [x] Verified against a real, disposable Postgres
+      (`docker run postgres:16`) — schema applies cleanly, round-trip
+      insert/read integration tests pass against the live container, not
+      just SQL that looks right.
+- [x] `pyapicheck` CLI stays file-first by default (no DB dependency for
+      the common case); persistence is opt-in via `--db-url`, not a
+      replacement for the file-based flow — "the CLI becomes a thin
+      client over it" from the original roadmap wording is deferred until
+      there's a real always-on deployment target to be a client *of*.
+
+**Demo:** against a fixture service with a fixture gateway log, correctly
+flag one shadow endpoint and one zombie endpoint, print a report with
+traffic volume, and (optionally) persist + re-read that inventory from a
+real Postgres instance.
 
 **Explicitly deferred:** ClickHouse, Kafka, full cloud-gateway integration
-matrix — not justified until traffic volume actually requires it (per the
-strategy doc's storage architecture section).
+matrix, OpenTelemetry/eBPF ingestion, and response-shape drift detection —
+not justified until traffic volume or a body-capturing source actually
+requires them.
 
 ---
 

@@ -17,6 +17,26 @@ jobs:
   rust:
     name: cargo test/clippy/fmt (core)
     runs-on: ubuntu-latest
+    # Backs the Phase 2 `db` module's integration tests (see core/src/db.rs)
+    # with a real, disposable Postgres — those tests skip themselves (not
+    # fail) when DATABASE_URL is unset, but CI always sets it so the
+    # persistence layer is verified against a live database on every push,
+    # not just SQL that looks right.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: pyapicheck
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:test@localhost:5432/pyapicheck
     steps:
       - uses: actions/checkout@v4
 

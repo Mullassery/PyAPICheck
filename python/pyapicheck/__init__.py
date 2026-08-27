@@ -45,6 +45,28 @@ def diff(old_spec_path: str, new_spec_path: str) -> dict:
     return json.loads(_core.diff(old_spec_path, new_spec_path))
 
 
+def report(spec_path: str, access_log_path: str) -> dict:
+    """Discover `spec_path` and cross-reference it against the gateway
+    access log at `access_log_path` (NDJSON, NGINX- or Envoy-shaped).
+    Returns `{"inventory": ..., "lifecycle": {"active": [...],
+    "zombie": [...], "shadow": [...]}}`."""
+    return json.loads(_core.report(spec_path, access_log_path))
+
+
+def persist(database_url: str, spec_path: str, access_log_path: str = None) -> int:
+    """Discover `spec_path` (and, if given, cross-reference
+    `access_log_path`), then persist the result to the Postgres database at
+    `database_url` (running migrations first). Returns the new inventory's
+    row id. Opt-in only -- nothing else in this package touches a database
+    unless this is called explicitly."""
+    return _core.persist(database_url, spec_path, access_log_path)
+
+
+def load_inventory(database_url: str, inventory_id: int) -> dict:
+    """Re-read a previously `persist`-ed inventory back from Postgres."""
+    return json.loads(_core.load_inventory(database_url, inventory_id))
+
+
 def remediate(spec_path: str) -> dict:
     """Compute the remediation plan for the OpenAPI spec at `spec_path`:
     a `fixes` list (each a safe, mechanical spec change) and
@@ -64,6 +86,9 @@ __all__ = [
     "discover_directory",
     "discover_path",
     "diff",
+    "report",
+    "persist",
+    "load_inventory",
     "remediate",
     "__version__",
 ]

@@ -88,6 +88,35 @@ or sensitive-field differences) between two spec snapshots — e.g. two Git
 revisions checked out to disk. This is the first "behavior changed" signal,
 still fully static (no traffic required).
 
+### Observed vs. declared: shadow and zombie endpoints
+
+```bash
+pyapicheck report openapi.yaml access.log
+```
+
+Cross-references the declared spec against a gateway access log (NDJSON,
+NGINX- or Envoy-shaped JSON log lines) and flags **zombie** endpoints
+(declared, zero observed requests) and **shadow** endpoints (observed
+traffic hitting something not in the spec at all) — the first "what's
+actually happening" signal, on top of the purely-declared risk report.
+
+### Persisting to Postgres (optional)
+
+By default `pyapicheck` is entirely file-in, report-out — no database
+required. Add `--db-url` to `discover` or `report` to also persist the
+result (each run creates a new history row rather than overwriting the
+last one):
+
+```bash
+pyapicheck report openapi.yaml access.log --db-url postgres://user:pass@host/db
+```
+
+```python
+import pyapicheck
+inventory_id = pyapicheck.persist("postgres://user:pass@host/db", "openapi.yaml")
+inventory = pyapicheck.load_inventory("postgres://user:pass@host/db", inventory_id)
+```
+
 ### In CI
 
 ```bash

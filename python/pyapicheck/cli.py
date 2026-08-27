@@ -9,7 +9,9 @@ import sys
 from . import diff as _diff_specs
 from . import discover as _discover_inventory
 from . import discover_directory as _discover_directory
+from . import persist as _persist
 from . import remediate as _remediate_spec
+from . import report as _report
 
 _LEVEL_COLORS = {
     "CRITICAL": "\033[1;97;41m",
@@ -62,11 +64,17 @@ def _print_report(inventory: dict) -> None:
 
 def _cmd_discover(args: argparse.Namespace) -> int:
     is_directory = os.path.isdir(args.spec)
+    if args.db_url and is_directory:
+        print("error: --db-url is only supported for a single spec file, not a directory", file=sys.stderr)
+        return 1
     try:
         if is_directory:
             inventories = _discover_directory(args.spec)
         else:
             inventories = [_discover_inventory(args.spec)]
+        if args.db_url:
+            inventory_id = _persist(args.db_url, args.spec)
+            print(f"persisted as inventory id {inventory_id}", file=sys.stderr)
     except Exception as exc:  # surfaces parser/classification errors directly to the user
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -127,6 +135,51 @@ def _cmd_diff(args: argparse.Namespace) -> int:
 
     if not (report["added"] or report["removed"] or report["changed"]):
         print("no drift detected\n")
+
+    return 0
+
+
+def _cmd_report(args: argparse.Namespace) -> int:
+    try:
+        result = _report(args.spec, args.access_log)
+        if args.db_url:
+            inventory_id = _persist(args.db_url, args.spec, args.access_log)
+            print(f"persisted as inventory id {inventory_id}", file=sys.stderr)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    inventory = result["inventory"]
+    lifecycle = result["lifecycle"]
+    counts = {
+        (ep["method"], ep["path"]): ep["request_count"] for ep in lifecycle["active"]
+    }
+    zombie_keys = {(ep["method"], ep["path"]) for ep in lifecycle["zombie"]}
+
+    _print_report(inventory)
+
+    print(
+        f"lifecycle (from {args.access_log}): "
+        f"{len(lifecycle['active'])} active, {len(lifecycle['zombie'])} zombie, "
+        f"{len(lifecycle['shadow'])} shadow\n"
+    )
+    for ep in inventory["endpoints"]:
+        key = (ep["method"], ep["path"])
+        if key in zombie_keys:
+            status = "ZOMBIE (0 requests observed)"
+        else:
+            status = f"active ({counts.get(key, 0)} requests observed)"
+        print(f"  {ep['method']:<7} {ep['path']:<28} {status}")
+
+    if lifecycle["shadow"]:
+        print("\nshadow endpoints (observed traffic, not in any spec):")
+        for ep in lifecycle["shadow"]:
+            print(f"  {ep['method']:<7} {ep['path']:<28} {ep['request_count']} requests")
+    print()
 
     return 0
 
@@ -195,6 +248,11 @@ def main(argv=None) -> int:
         action="store_true",
         help="Exit non-zero if any endpoint scores HIGH or CRITICAL (for CI)",
     )
+    discover_parser.add_argument(
+        "--db-url",
+        default=None,
+        help="Postgres URL to persist this inventory to, in addition to printing it (single spec file only)",
+    )
     discover_parser.set_defaults(func=_cmd_discover)
 
     remediate_parser = sub.add_parser(
@@ -219,6 +277,24 @@ def main(argv=None) -> int:
         "--json", action="store_true", help="Output the raw drift report as JSON"
     )
     diff_parser.set_defaults(func=_cmd_diff)
+
+    report_parser = sub.add_parser(
+        "report",
+        help="Cross-reference a spec against a gateway access log for shadow/zombie endpoints",
+    )
+    report_parser.add_argument("spec", help="Path to an OpenAPI 3.x YAML or JSON file")
+    report_parser.add_argument(
+        "access_log", help="Path to an NDJSON gateway access log (NGINX- or Envoy-shaped)"
+    )
+    report_parser.add_argument(
+        "--json", action="store_true", help="Output the raw inventory + lifecycle report as JSON"
+    )
+    report_parser.add_argument(
+        "--db-url",
+        default=None,
+        help="Postgres URL to persist this inventory + traffic to, in addition to printing it",
+    )
+    report_parser.set_defaults(func=_cmd_report)
 
     args = parser.parse_args(argv)
     return args.func(args)
