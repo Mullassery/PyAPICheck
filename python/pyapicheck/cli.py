@@ -9,6 +9,10 @@ import sys
 from . import diff as _diff_specs
 from . import discover as _discover_inventory
 from . import discover_directory as _discover_directory
+from . import graph_add_agent as _graph_add_agent
+from . import graph_blast_radius as _graph_blast_radius
+from . import graph_load_mcp as _graph_load_mcp
+from . import graph_reachable as _graph_reachable
 from . import persist as _persist
 from . import remediate as _remediate_spec
 from . import report as _report
@@ -225,6 +229,80 @@ def _cmd_remediate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_graph_load_mcp(args: argparse.Namespace) -> int:
+    try:
+        servers = _graph_load_mcp(args.db_url, args.config, args.timeout)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(servers, indent=2))
+        return 0
+
+    for server in servers:
+        config = server["config"]
+        tools = server["tools"]
+        if "Tools" in tools:
+            status = f"{len(tools['Tools'])} tool(s): {', '.join(tools['Tools'])}"
+        else:
+            status = f"unavailable: {tools['Unavailable']}"
+        print(f"  {config['name']:<20} {status}")
+    print(f"\n{len(servers)} MCP server(s) written to the graph")
+    return 0
+
+
+def _cmd_graph_add_agent(args: argparse.Namespace) -> int:
+    try:
+        _graph_add_agent(
+            args.db_url,
+            args.name,
+            args.owner,
+            allowed_tools=args.tool or [],
+            allowed_apis=args.api or [],
+            declared_scope=args.scope or "",
+        )
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"agent {args.name!r} written to the graph")
+    return 0
+
+
+def _cmd_graph_reachable(args: argparse.Namespace) -> int:
+    try:
+        nodes = _graph_reachable(args.db_url, args.agent_name)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(nodes, indent=2))
+        return 0
+
+    print(f"\n{args.agent_name} can reach {len(nodes)} node(s):")
+    for node in nodes:
+        print(f"  {node['label']:<12} {node['name']}")
+    return 0
+
+
+def _cmd_graph_blast_radius(args: argparse.Namespace) -> int:
+    try:
+        nodes = _graph_blast_radius(args.db_url, args.resource_name)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(nodes, indent=2))
+        return 0
+
+    print(f"\n{len(nodes)} identit(y/ies) can reach {args.resource_name}:")
+    for node in nodes:
+        print(f"  {node['label']:<12} {node['name']}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="pyapicheck")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -295,6 +373,55 @@ def main(argv=None) -> int:
         help="Postgres URL to persist this inventory + traffic to, in addition to printing it",
     )
     report_parser.set_defaults(func=_cmd_report)
+
+    graph_parser = sub.add_parser(
+        "graph", help="Security graph: MCP/agent discovery, reachability, blast radius"
+    )
+    graph_sub = graph_parser.add_subparsers(dest="graph_command", required=True)
+
+    load_mcp_parser = graph_sub.add_parser(
+        "load-mcp", help="Discover MCP servers from a config file and write them into the graph"
+    )
+    load_mcp_parser.add_argument(
+        "config", help="Path to an mcpServers-shaped config (claude_desktop_config.json / .mcp.json)"
+    )
+    load_mcp_parser.add_argument("--db-url", required=True, help="Postgres+AGE URL")
+    load_mcp_parser.add_argument(
+        "--timeout", type=int, default=10, help="Seconds to wait for each server's tools/list response"
+    )
+    load_mcp_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    load_mcp_parser.set_defaults(func=_cmd_graph_load_mcp)
+
+    add_agent_parser = graph_sub.add_parser(
+        "add-agent", help="Write an agent identity into the graph, linked to its declared tools/APIs"
+    )
+    add_agent_parser.add_argument("name", help="Agent name")
+    add_agent_parser.add_argument("--owner", required=True, help="Who owns/is responsible for this agent")
+    add_agent_parser.add_argument(
+        "--tool", action="append", help="Name of a Tool vertex this agent can call (repeatable)"
+    )
+    add_agent_parser.add_argument(
+        "--api", action="append", help="Name of an Endpoint vertex this agent can call (repeatable)"
+    )
+    add_agent_parser.add_argument("--scope", default="", help="Declared scope, free text")
+    add_agent_parser.add_argument("--db-url", required=True, help="Postgres+AGE URL")
+    add_agent_parser.set_defaults(func=_cmd_graph_add_agent)
+
+    reachable_parser = graph_sub.add_parser(
+        "reachable", help="What can this agent reach (multi-hop traversal)"
+    )
+    reachable_parser.add_argument("agent_name", help="Agent name")
+    reachable_parser.add_argument("--db-url", required=True, help="Postgres+AGE URL")
+    reachable_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    reachable_parser.set_defaults(func=_cmd_graph_reachable)
+
+    blast_radius_parser = graph_sub.add_parser(
+        "blast-radius", help="What can reach this resource (reverse multi-hop traversal)"
+    )
+    blast_radius_parser.add_argument("resource_name", help="Resource (or any vertex) name")
+    blast_radius_parser.add_argument("--db-url", required=True, help="Postgres+AGE URL")
+    blast_radius_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    blast_radius_parser.set_defaults(func=_cmd_graph_blast_radius)
 
     args = parser.parse_args(argv)
     return args.func(args)

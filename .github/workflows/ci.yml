@@ -17,14 +17,17 @@ jobs:
   rust:
     name: cargo test/clippy/fmt (core)
     runs-on: ubuntu-latest
-    # Backs the Phase 2 `db` module's integration tests (see core/src/db.rs)
-    # with a real, disposable Postgres — those tests skip themselves (not
-    # fail) when DATABASE_URL is unset, but CI always sets it so the
-    # persistence layer is verified against a live database on every push,
-    # not just SQL that looks right.
+    # Backs the Phase 2 `db` module's and Phase 3 `graph` module's
+    # integration tests (core/src/db.rs, core/src/graph.rs) with a real,
+    # disposable Postgres+AGE instance — those tests skip themselves (not
+    # fail) when DATABASE_URL is unset, but CI always sets it so both
+    # persistence layers are verified against a live database on every
+    # push, not just SQL/Cypher that looks right. `apache/age` is used
+    # (instead of plain `postgres`) for every DB-backed test here, plain
+    # Postgres schema and the AGE extension coexist fine in one database.
     services:
       postgres:
-        image: postgres:16
+        image: apache/age
         env:
           POSTGRES_PASSWORD: test
           POSTGRES_DB: pyapicheck
@@ -44,6 +47,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - uses: Swatinem/rust-cache@v2
 

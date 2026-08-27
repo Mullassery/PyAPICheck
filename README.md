@@ -168,10 +168,43 @@ parse-and-re-serialize round trip — comments, key order, and quote style
 elsewhere in the file are untouched, so the diff stays minimal and
 reviewable.
 
+### Security graph: MCP/agent discovery, reachability, blast radius
+
+Beyond individual API specs, `pyapicheck` can build a security graph
+(Postgres + [Apache AGE](https://age.apache.org/)) of `User`/`Agent`/
+`Tool`/`Endpoint`/`Resource`/`Role` nodes and answer graph questions a
+config file can't answer directly:
+
+```bash
+# Discover MCP servers from a config file, live-introspect each one's real
+# tool list over stdio JSON-RPC, and write them into the graph as Tool nodes.
+pyapicheck graph load-mcp claude_desktop_config.json --db-url postgres://user:pass@host/db
+
+# Declare an agent's identity and what it's allowed to call.
+pyapicheck graph add-agent finance-agent --owner alice \
+  --tool refunds-api --scope "process customer refunds" \
+  --db-url postgres://user:pass@host/db
+
+# "What can this agent reach" -- multi-hop traversal, not a config guess.
+pyapicheck graph reachable finance-agent --db-url postgres://user:pass@host/db
+
+# "What's the blast radius if this leaks" -- reverse traversal.
+pyapicheck graph blast-radius accounts_table --db-url postgres://user:pass@host/db
+```
+
+MCP tool discovery is real, not config-trusting: each configured server is
+actually spawned and asked for its tool list over the real MCP JSON-RPC
+handshake (`initialize` → `tools/list`). A server that fails to start or
+doesn't answer is reported `unavailable: <reason>`, never silently treated
+as "zero tools." An agent can only be linked to a tool/API that's already
+been discovered -- `graph add-agent` fails loudly if you reference one
+that isn't in the graph yet, rather than silently no-op-ing.
+
 ## What this is (and isn't) — yet
 
-`pyapicheck` today parses **declared** API surface from an OpenAPI spec. It
-does not yet do runtime traffic discovery, behavioral baselining, or agent/
+`pyapicheck` today parses **declared** API surface from an OpenAPI spec,
+cross-references it against real traffic, and builds a security graph of
+agents/tools/resources. It does not yet do behavioral baselining or agent/
 MCP authorization — those are the next layers. See [ROADMAP.md](ROADMAP.md)
 for the concrete, phase-by-phase plan from here to the full product vision
 (an authorization and behavior control plane for AI agents and the APIs/MCP

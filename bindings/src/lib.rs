@@ -122,6 +122,117 @@ fn load_inventory(database_url: String, inventory_id: i64) -> PyResult<String> {
     })
 }
 
+/// Discover MCP servers from an `mcpServers`-shaped config file, live
+/// tool-introspect each one (best-effort, `timeout_secs` per server), and
+/// write them into the security graph as `Tool` vertices. Returns the
+/// discovery results (config + tools/status) as JSON.
+#[pyfunction]
+#[pyo3(signature = (database_url, config_path, timeout_secs=10))]
+#[allow(clippy::useless_conversion)]
+fn graph_load_mcp(
+    database_url: String,
+    config_path: String,
+    timeout_secs: u64,
+) -> PyResult<String> {
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| PyValueError::new_err(format!("failed to start async runtime: {e}")))?;
+
+    runtime.block_on(async {
+        let text = std::fs::read_to_string(&config_path)
+            .map_err(|e| PyValueError::new_err(format!("failed to read {config_path}: {e}")))?;
+        let configs =
+            pyapicheck_core::mcp::parse_mcp_config(&text).map_err(PyValueError::new_err)?;
+        let discovered = pyapicheck_core::mcp::discover_all(
+            &configs,
+            std::time::Duration::from_secs(timeout_secs),
+        );
+
+        let pool = pyapicheck_core::graph::connect(&database_url)
+            .await
+            .map_err(PyValueError::new_err)?;
+        pyapicheck_core::graph::ensure_graph(&pool)
+            .await
+            .map_err(PyValueError::new_err)?;
+        for server in &discovered {
+            pyapicheck_core::graph::upsert_mcp_server(&pool, server)
+                .await
+                .map_err(PyValueError::new_err)?;
+        }
+
+        serde_json::to_string(&discovered).map_err(|e| PyValueError::new_err(e.to_string()))
+    })
+}
+
+/// Write an agent identity (JSON: `{name, owner, allowed_tools,
+/// allowed_apis, declared_scope}`) into the security graph, linking it to
+/// its declared tools/APIs (which must already exist as `Tool`/`Endpoint`
+/// vertices).
+#[pyfunction]
+#[allow(clippy::useless_conversion)]
+fn graph_add_agent(database_url: String, agent_json: String) -> PyResult<()> {
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| PyValueError::new_err(format!("failed to start async runtime: {e}")))?;
+
+    runtime.block_on(async {
+        let agent: pyapicheck_core::model::AgentIdentity =
+            serde_json::from_str(&agent_json).map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        let pool = pyapicheck_core::graph::connect(&database_url)
+            .await
+            .map_err(PyValueError::new_err)?;
+        pyapicheck_core::graph::ensure_graph(&pool)
+            .await
+            .map_err(PyValueError::new_err)?;
+        pyapicheck_core::graph::upsert_agent(&pool, &agent)
+            .await
+            .map_err(PyValueError::new_err)
+    })
+}
+
+/// "What can this agent reach": every node reachable from `agent_name` via
+/// any path of graph edges. Returns a JSON array of `{label, name}`.
+#[pyfunction]
+#[allow(clippy::useless_conversion)]
+fn graph_reachable(database_url: String, agent_name: String) -> PyResult<String> {
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| PyValueError::new_err(format!("failed to start async runtime: {e}")))?;
+
+    runtime.block_on(async {
+        let pool = pyapicheck_core::graph::connect(&database_url)
+            .await
+            .map_err(PyValueError::new_err)?;
+        pyapicheck_core::graph::ensure_graph(&pool)
+            .await
+            .map_err(PyValueError::new_err)?;
+        let nodes = pyapicheck_core::graph::reachable_from(&pool, &agent_name)
+            .await
+            .map_err(PyValueError::new_err)?;
+        serde_json::to_string(&nodes).map_err(|e| PyValueError::new_err(e.to_string()))
+    })
+}
+
+/// "What's the blast radius if this resource leaks": every Agent/User with
+/// a path into `resource_name`. Returns a JSON array of `{label, name}`.
+#[pyfunction]
+#[allow(clippy::useless_conversion)]
+fn graph_blast_radius(database_url: String, resource_name: String) -> PyResult<String> {
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| PyValueError::new_err(format!("failed to start async runtime: {e}")))?;
+
+    runtime.block_on(async {
+        let pool = pyapicheck_core::graph::connect(&database_url)
+            .await
+            .map_err(PyValueError::new_err)?;
+        pyapicheck_core::graph::ensure_graph(&pool)
+            .await
+            .map_err(PyValueError::new_err)?;
+        let nodes = pyapicheck_core::graph::blast_radius(&pool, &resource_name)
+            .await
+            .map_err(PyValueError::new_err)?;
+        serde_json::to_string(&nodes).map_err(|e| PyValueError::new_err(e.to_string()))
+    })
+}
+
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(discover, m)?)?;
@@ -131,5 +242,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(report, m)?)?;
     m.add_function(wrap_pyfunction!(persist, m)?)?;
     m.add_function(wrap_pyfunction!(load_inventory, m)?)?;
+    m.add_function(wrap_pyfunction!(graph_load_mcp, m)?)?;
+    m.add_function(wrap_pyfunction!(graph_add_agent, m)?)?;
+    m.add_function(wrap_pyfunction!(graph_reachable, m)?)?;
+    m.add_function(wrap_pyfunction!(graph_blast_radius, m)?)?;
     Ok(())
 }

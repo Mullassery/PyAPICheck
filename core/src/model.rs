@@ -54,6 +54,18 @@ pub struct Endpoint {
     pub openapi_status: String,
 }
 
+/// An AI agent's declared identity: distinct from a human `User` or a
+/// static service account, per the product vision's non-negotiable design
+/// constraint (see ROADMAP.md Phase 3.3).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentIdentity {
+    pub name: String,
+    pub owner: String,
+    pub allowed_tools: Vec<String>,
+    pub allowed_apis: Vec<String>,
+    pub declared_scope: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct InventorySummary {
     pub total_endpoints: usize,

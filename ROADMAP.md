@@ -176,28 +176,78 @@ requires them.
 
 ---
 
-## Phase 3 — Security graph + agent/MCP discovery
+## Phase 3 — Security graph + agent/MCP discovery ✅ done (`v0.4.0`, this commit)
 
 Goal: this is the pivot point — from "API posture tool" toward the actual
 product thesis (agent/API authorization control plane).
 
-- [ ] Graph schema in Postgres (+ AGE extension) per the vision doc: User,
-      Agent, Tool/MCP server, Endpoint, Resource, Role.
-- [ ] MCP server discovery: enumerate registered MCP servers and the tools
-      they expose, same discovery discipline as API discovery.
-- [ ] Agent identity as a first-class record, distinct from human users
-      and static service accounts (owner, allowed tools/APIs, declared
-      scope) — this is the non-negotiable design constraint from the
-      product vision, not an implementation detail to defer.
-- [ ] Graph queries answering: "what can this agent reach" and "what's the
-      blast radius if this credential leaks" (multi-hop traversal).
+### 3.1 Graph schema + persistence (`core/src/graph.rs`, Postgres + Apache AGE)
+- [x] Verified `apache/age` runs as a normal Postgres container
+      (`docker run apache/age`), `CREATE EXTENSION age` succeeds, and a
+      real multi-hop Cypher query (`MATCH (a)-[*1..3]->(r)`) returns the
+      correct transitively-reachable nodes — checked before committing to
+      this over a plain adjacency-list table.
+- [x] Vertex labels: `User`, `Agent`, `Tool` (an MCP server), `Endpoint`,
+      `Resource`, `Role`. Edge labels: `CAN_CALL` (Agent/User→Tool or
+      Endpoint), `EXPOSES` (Tool→Endpoint-like capability), `ACCESSES`
+      (Tool/Endpoint→Resource), `HAS_ROLE` (Agent/User→Role).
+- [x] `core/src/graph.rs` wraps AGE's `cypher()` SQL-function calling
+      convention (queries are plain strings inside `cypher('graph', $$
+      ... $$)`, not parameterizable the way normal SQL is — values are
+      escaped and inlined, not bound) behind a typed Rust API so callers
+      never hand-write Cypher.
+
+### 3.2 MCP server discovery (`core/src/mcp.rs`)
+- [x] Static discovery: parse the common `mcpServers` config shape (Claude
+      Desktop's `claude_desktop_config.json`, a project's `.mcp.json`) —
+      server name, launch command, args, env keys (not values — secrets
+      stay out of the graph).
+- [x] Live tool enumeration: for each configured server, actually spawn it
+      over stdio and speak minimal MCP JSON-RPC (`initialize` then
+      `tools/list`) to get its real, current tool list — not just what a
+      config file claims. Best-effort with a timeout: a server that fails
+      to start or doesn't answer is reported as `tools: unavailable
+      (<reason>)`, never silently treated as zero tools (a config problem
+      isn't evidence of "no tools").
+- **Demo:** point at a fixture `.mcp.json` referencing a tiny stdio test
+  server (fixture script under `core/tests/fixtures/`); discovery reports
+  its real tool list, not a hardcoded guess.
+
+### 3.3 Agent identity (`core/src/model.rs` + `graph.rs`)
+- [x] `AgentIdentity { name, owner, allowed_tools, allowed_apis,
+      declared_scope }` — a first-class record distinct from a human
+      `User`, per the product vision's non-negotiable constraint.
+- [x] `graph::upsert_agent` writes an `Agent` vertex plus `CAN_CALL` edges
+      to its declared tools/APIs (which must already exist as `Tool`/
+      `Endpoint` vertices — an agent can't be wired to a capability that
+      was never discovered).
+
+### 3.4 Graph queries (`core/src/graph.rs`)
+- [x] `reachable_from(agent_name)`: multi-hop traversal answering "what can
+      this agent reach" — every `Resource`/`Endpoint` connected via any
+      path of `CAN_CALL`/`EXPOSES`/`ACCESSES` edges.
+- [x] `blast_radius(resource_name)`: reverse traversal answering "what can
+      reach this resource" — every `Agent`/`User` with a path *into* it.
+- [x] Both verified against a real AGE graph seeded with fixture
+      agents/tools/resources, not just "the Cypher looks right."
+
+### CLI (`pyapicheck graph ...`)
+- [x] `pyapicheck graph load-mcp <config.json> --db-url <url>`: discover
+      MCP servers/tools and write them into the graph.
+- [x] `pyapicheck graph reachable <agent-name> --db-url <url>`.
+- [x] `pyapicheck graph blast-radius <resource-name> --db-url <url>`.
 
 **Demo:** for a real agent with MCP tool access, produce the reachability
 graph and answer a blast-radius question a human couldn't easily answer
 by reading config files.
 
 **Explicitly deferred:** Neo4j/Memgraph migration — Postgres+AGE until
-graph size or query latency actually demands it.
+graph size or query latency actually demands it. Also deferred: wiring
+Phase 1/2's OpenAPI `Endpoint`/traffic data into the graph automatically
+(this phase's `Endpoint` vertex label exists in the schema but is
+populated by `graph.rs`'s own API, not yet auto-synced from `discover`/
+`report` — that integration is real work, not a rename, and belongs in
+a follow-up once the graph primitives above are proven correct).
 
 ---
 

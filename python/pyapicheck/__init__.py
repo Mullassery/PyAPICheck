@@ -67,6 +67,48 @@ def load_inventory(database_url: str, inventory_id: int) -> dict:
     return json.loads(_core.load_inventory(database_url, inventory_id))
 
 
+def graph_load_mcp(database_url: str, config_path: str, timeout_secs: int = 10) -> list:
+    """Discover MCP servers from an `mcpServers`-shaped config file
+    (Claude Desktop's `claude_desktop_config.json` / a project's
+    `.mcp.json`), live-introspect each one's real tool list over stdio
+    JSON-RPC (best-effort, `timeout_secs` per server), and write them into
+    the security graph as `Tool` vertices. Returns the discovery results."""
+    return json.loads(_core.graph_load_mcp(database_url, config_path, timeout_secs))
+
+
+def graph_add_agent(
+    database_url: str,
+    name: str,
+    owner: str,
+    allowed_tools: list = None,
+    allowed_apis: list = None,
+    declared_scope: str = "",
+) -> None:
+    """Write an agent identity into the security graph, linking it to its
+    declared tools/APIs (which must already exist as `Tool`/`Endpoint`
+    vertices, e.g. via `graph_load_mcp`)."""
+    agent = {
+        "name": name,
+        "owner": owner,
+        "allowed_tools": allowed_tools or [],
+        "allowed_apis": allowed_apis or [],
+        "declared_scope": declared_scope,
+    }
+    _core.graph_add_agent(database_url, json.dumps(agent))
+
+
+def graph_reachable(database_url: str, agent_name: str) -> list:
+    """"What can this agent reach": every node connected from `agent_name`
+    via any path of graph edges, as a list of `{"label": ..., "name": ...}`."""
+    return json.loads(_core.graph_reachable(database_url, agent_name))
+
+
+def graph_blast_radius(database_url: str, resource_name: str) -> list:
+    """"What's the blast radius if this resource/credential leaks": every
+    Agent/User with a path into `resource_name`."""
+    return json.loads(_core.graph_blast_radius(database_url, resource_name))
+
+
 def remediate(spec_path: str) -> dict:
     """Compute the remediation plan for the OpenAPI spec at `spec_path`:
     a `fixes` list (each a safe, mechanical spec change) and
@@ -89,6 +131,10 @@ __all__ = [
     "report",
     "persist",
     "load_inventory",
+    "graph_load_mcp",
+    "graph_add_agent",
+    "graph_reachable",
+    "graph_blast_radius",
     "remediate",
     "__version__",
 ]

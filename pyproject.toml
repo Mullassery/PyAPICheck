@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "pyapicheck"
-version = "0.3.0"
+version = "0.4.0"
 description = "Discover APIs from an OpenAPI spec, classify sensitive fields, and score risk — with every score traceable to a named reason, not a black-box number."
 readme = "README.md"
 requires-python = ">=3.9"
