@@ -23,3 +23,4 @@ manifest-path = "bindings/Cargo.toml"
 module-name = "pyapicheck._core"
 python-source = "python"
 features = ["pyo3/extension-module"]
+include = ["LICENSE"]
