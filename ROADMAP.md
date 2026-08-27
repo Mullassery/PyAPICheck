@@ -29,7 +29,7 @@ under a second, self-hosted, zero infrastructure required.
 
 ---
 
-## Phase 1 — Broaden discovery, still spec-only
+## Phase 1 — Broaden discovery, still spec-only ✅ done (`v0.2.0`, this commit)
 
 Goal: don't need runtime traffic yet, but stop depending on a single
 hand-picked spec file. Every sub-phase below is spec-only (no DB, no
