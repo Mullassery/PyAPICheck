@@ -15,6 +15,9 @@ from . import graph_blast_radius as _graph_blast_radius
 from . import graph_load_mcp as _graph_load_mcp
 from . import graph_reachable as _graph_reachable
 from . import persist as _persist
+from . import policies_diff as _policies_diff
+from . import policies_recommend as _policies_recommend
+from . import policies_validate as _policies_validate
 from . import remediate as _remediate_spec
 from . import report as _report
 
@@ -230,6 +233,74 @@ def _cmd_remediate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_policies_validate(args: argparse.Namespace) -> int:
+    try:
+        summary = _policies_validate(args.policy)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(summary, indent=2))
+        return 0
+
+    print(f"\n{len(summary)} valid Cedar polic(y/ies) in {args.policy}:\n")
+    for p in summary:
+        annotations = ", ".join(f"{k}={v}" for k, v in p["annotations"])
+        suffix = f"  [{annotations}]" if annotations else ""
+        print(f"  {p['id']:<12} {p['effect']}{suffix}")
+    print()
+    return 0
+
+
+def _cmd_policies_recommend(args: argparse.Namespace) -> int:
+    try:
+        recommendations = _policies_recommend(
+            args.spec, args.historical_log, args.current_log, known_agents=args.agent or []
+        )
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(recommendations, indent=2))
+        return 0
+
+    print(f"\n{len(recommendations)} policy recommendation(s):\n")
+    for rec in recommendations:
+        print(rec["policy_text"])
+        print()
+    return 0
+
+
+def _cmd_policies_diff(args: argparse.Namespace) -> int:
+    try:
+        gaps = _policies_diff(
+            args.policy,
+            args.spec,
+            args.historical_log,
+            args.current_log,
+            known_agents=args.agent or [],
+        )
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(gaps, indent=2))
+        return 0
+
+    if not gaps:
+        print(f"\nno policy gaps: {args.policy} already covers every finding\n")
+        return 0
+
+    print(f"\n{len(gaps)} policy gap(s) -- currently ALLOWED by {args.policy}:\n")
+    for gap in gaps:
+        print(f"  {gap['principal']:<20} {gap['resource']:<32} {gap['reason']}")
+        print(f"    fix:\n{gap['recommended_fix']}\n")
+    return 0
+
+
 def _cmd_baseline(args: argparse.Namespace) -> int:
     try:
         result = _baseline(
@@ -442,6 +513,57 @@ def main(argv=None) -> int:
         "--json", action="store_true", help="Output the raw baseline report as JSON"
     )
     baseline_parser.set_defaults(func=_cmd_baseline)
+
+    policies_parser = sub.add_parser(
+        "policies", help="Cedar policy validation, recommendations, and drift detection"
+    )
+    policies_sub = policies_parser.add_subparsers(dest="policies_command", required=True)
+
+    validate_parser = policies_sub.add_parser(
+        "validate", help="Validate a Cedar policy file's syntax"
+    )
+    validate_parser.add_argument("policy", help="Path to a Cedar policy file")
+    validate_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    validate_parser.set_defaults(func=_cmd_policies_validate)
+
+    recommend_parser = policies_sub.add_parser(
+        "recommend",
+        help="Generate Cedar policy recommendations from Phase 4 baseline findings",
+    )
+    recommend_parser.add_argument("spec", help="Path to an OpenAPI 3.x YAML or JSON file")
+    recommend_parser.add_argument(
+        "historical_log", help="Path to an NDJSON gateway access log covering the baseline window"
+    )
+    recommend_parser.add_argument(
+        "current_log", help="Path to an NDJSON gateway access log covering the window to evaluate"
+    )
+    recommend_parser.add_argument(
+        "--agent",
+        action="append",
+        help="Identity known to be a declared agent (repeatable)",
+    )
+    recommend_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    recommend_parser.set_defaults(func=_cmd_policies_recommend)
+
+    policies_diff_parser = policies_sub.add_parser(
+        "diff",
+        help="Find findings an existing Cedar policy would currently allow, with fixes",
+    )
+    policies_diff_parser.add_argument("policy", help="Path to the existing Cedar policy file")
+    policies_diff_parser.add_argument("spec", help="Path to an OpenAPI 3.x YAML or JSON file")
+    policies_diff_parser.add_argument(
+        "historical_log", help="Path to an NDJSON gateway access log covering the baseline window"
+    )
+    policies_diff_parser.add_argument(
+        "current_log", help="Path to an NDJSON gateway access log covering the window to evaluate"
+    )
+    policies_diff_parser.add_argument(
+        "--agent",
+        action="append",
+        help="Identity known to be a declared agent (repeatable)",
+    )
+    policies_diff_parser.add_argument("--json", action="store_true", help="Output raw JSON")
+    policies_diff_parser.set_defaults(func=_cmd_policies_diff)
 
     graph_parser = sub.add_parser(
         "graph", help="Security graph: MCP/agent discovery, reachability, blast radius"

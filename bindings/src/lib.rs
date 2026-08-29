@@ -87,6 +87,67 @@ fn baseline(
     serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Parse and validate a Cedar policy file. Returns a JSON array of
+/// `{"id", "effect", "annotations"}` on success (real Cedar syntax
+/// validation, not a heuristic check).
+#[pyfunction]
+#[allow(clippy::useless_conversion)]
+fn policies_validate(policy_path: String) -> PyResult<String> {
+    let policy_set = pyapicheck_core::validate_policy_file(std::path::Path::new(&policy_path))
+        .map_err(PyValueError::new_err)?;
+    let summary = pyapicheck_core::policy::summarize_policy_set(&policy_set);
+    serde_json::to_string(&summary).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Run Phase 4's baseline detectors over `spec_path`/the two traffic logs
+/// and generate Cedar policy recommendations from the findings. Returns a
+/// JSON array of `{"policy_text", "effect_hint", "reason"}`.
+#[pyfunction]
+#[pyo3(signature = (spec_path, historical_log_path, current_log_path, known_agents=vec![]))]
+#[allow(clippy::useless_conversion)]
+fn policies_recommend(
+    spec_path: String,
+    historical_log_path: String,
+    current_log_path: String,
+    known_agents: Vec<String>,
+) -> PyResult<String> {
+    let known_agents: std::collections::HashSet<String> = known_agents.into_iter().collect();
+    let recommendations = pyapicheck_core::policy_recommendations_from_files(
+        std::path::Path::new(&spec_path),
+        std::path::Path::new(&historical_log_path),
+        std::path::Path::new(&current_log_path),
+        &known_agents,
+    )
+    .map_err(PyValueError::new_err)?;
+    serde_json::to_string(&recommendations).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Run Phase 4's baseline detectors, then check each finding against an
+/// existing Cedar policy file using real Cedar evaluation. Returns a JSON
+/// array of policy gaps (`{"principal", "resource", "reason",
+/// "recommended_fix"}`) -- findings the policy would currently `Allow`.
+#[pyfunction]
+#[pyo3(signature = (policy_path, spec_path, historical_log_path, current_log_path, known_agents=vec![]))]
+#[allow(clippy::useless_conversion)]
+fn policies_diff(
+    policy_path: String,
+    spec_path: String,
+    historical_log_path: String,
+    current_log_path: String,
+    known_agents: Vec<String>,
+) -> PyResult<String> {
+    let known_agents: std::collections::HashSet<String> = known_agents.into_iter().collect();
+    let gaps = pyapicheck_core::policy_diff_from_files(
+        std::path::Path::new(&policy_path),
+        std::path::Path::new(&spec_path),
+        std::path::Path::new(&historical_log_path),
+        std::path::Path::new(&current_log_path),
+        &known_agents,
+    )
+    .map_err(PyValueError::new_err)?;
+    serde_json::to_string(&gaps).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// Discover `spec_path` (and, if given, cross-reference `access_log_path`),
 /// then persist the result to Postgres at `database_url` (running
 /// migrations first). Returns the new inventory's row id. Opt-in only --
@@ -266,6 +327,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(diff, m)?)?;
     m.add_function(wrap_pyfunction!(report, m)?)?;
     m.add_function(wrap_pyfunction!(baseline, m)?)?;
+    m.add_function(wrap_pyfunction!(policies_validate, m)?)?;
+    m.add_function(wrap_pyfunction!(policies_recommend, m)?)?;
+    m.add_function(wrap_pyfunction!(policies_diff, m)?)?;
     m.add_function(wrap_pyfunction!(persist, m)?)?;
     m.add_function(wrap_pyfunction!(load_inventory, m)?)?;
     m.add_function(wrap_pyfunction!(graph_load_mcp, m)?)?;

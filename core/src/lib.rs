@@ -8,6 +8,7 @@ pub mod lifecycle;
 pub mod mcp;
 pub mod model;
 pub mod openapi;
+pub mod policy;
 pub mod postman;
 pub mod remediate;
 pub mod risk;
@@ -67,6 +68,63 @@ pub fn baseline_from_files(
         bola_findings: detect_sequential_id_access(&inventory, &current, BOLA_MIN_RUN_LENGTH),
         first_time_operations: detect_first_time_operations(&inventory, &historical, &current),
     })
+}
+
+/// Parse and validate a Cedar policy file, surfacing Cedar's own parse
+/// errors on failure.
+pub fn validate_policy_file(path: &Path) -> Result<cedar_policy::PolicySet, String> {
+    let text =
+        fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    policy::parse_policy_set(&text)
+}
+
+/// Run Phase 4's baseline detectors over the given spec/logs, then
+/// generate Cedar policy recommendations from the findings -- see
+/// ROADMAP.md Phase 6.2.
+pub fn policy_recommendations_from_files(
+    spec_path: &Path,
+    historical_log_path: &Path,
+    current_log_path: &Path,
+    known_agents: &HashSet<String>,
+) -> Result<Vec<policy::PolicyRecommendation>, String> {
+    let result = baseline_from_files(
+        spec_path,
+        historical_log_path,
+        current_log_path,
+        known_agents,
+    )?;
+    let mut recommendations =
+        policy::recommend_from_bola_findings(&result.bola_findings, known_agents)?;
+    recommendations.extend(policy::recommend_from_first_time_operations(
+        &result.first_time_operations,
+        known_agents,
+    )?);
+    Ok(recommendations)
+}
+
+/// Run Phase 4's baseline detectors, then check each finding against an
+/// existing Cedar policy file: findings the policy would currently
+/// `Allow` are genuine gaps, returned with a ready-to-add `forbid` fix.
+pub fn policy_diff_from_files(
+    policy_path: &Path,
+    spec_path: &Path,
+    historical_log_path: &Path,
+    current_log_path: &Path,
+    known_agents: &HashSet<String>,
+) -> Result<Vec<policy::PolicyGap>, String> {
+    let policy_set = validate_policy_file(policy_path)?;
+    let result = baseline_from_files(
+        spec_path,
+        historical_log_path,
+        current_log_path,
+        known_agents,
+    )?;
+    policy::diff_against_policy(
+        &policy_set,
+        &result.bola_findings,
+        &result.first_time_operations,
+        known_agents,
+    )
 }
 
 #[derive(Debug, Clone, Serialize)]

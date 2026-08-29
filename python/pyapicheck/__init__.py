@@ -72,6 +72,53 @@ def baseline(
     )
 
 
+def policies_validate(policy_path: str) -> list:
+    """Parse and validate the Cedar policy file at `policy_path` using
+    real Cedar syntax validation. Returns a list of
+    `{"id", "effect", "annotations"}` on success; raises on a parse error
+    (Cedar's own error message)."""
+    return json.loads(_core.policies_validate(policy_path))
+
+
+def policies_recommend(
+    spec_path: str,
+    historical_log_path: str,
+    current_log_path: str,
+    known_agents: list = None,
+) -> list:
+    """Run Phase 4's baseline detectors over `spec_path`/the two traffic
+    logs and generate Cedar policy recommendations from the findings:
+    BOLA-shaped findings become `effect_hint: "deny"` policies, first-time
+    operations become `effect_hint: "require_approval"` policies (Cedar
+    itself only has permit/forbid -- every recommendation is a `forbid`;
+    see `pyapicheck.policy` module docs for why). Returns a list of
+    `{"policy_text", "effect_hint", "reason"}`."""
+    return json.loads(
+        _core.policies_recommend(
+            spec_path, historical_log_path, current_log_path, known_agents or []
+        )
+    )
+
+
+def policies_diff(
+    policy_path: str,
+    spec_path: str,
+    historical_log_path: str,
+    current_log_path: str,
+    known_agents: list = None,
+) -> list:
+    """Run Phase 4's baseline detectors, then check each finding against
+    the existing Cedar policy file at `policy_path` using real Cedar
+    evaluation. Returns policy gaps -- findings the policy would currently
+    `Allow` -- each with a ready-to-add `forbid` fix. An empty list means
+    every finding is already covered (or there were no findings)."""
+    return json.loads(
+        _core.policies_diff(
+            policy_path, spec_path, historical_log_path, current_log_path, known_agents or []
+        )
+    )
+
+
 def persist(database_url: str, spec_path: str, access_log_path: str = None) -> int:
     """Discover `spec_path` (and, if given, cross-reference
     `access_log_path`), then persist the result to the Postgres database at
@@ -149,6 +196,9 @@ __all__ = [
     "diff",
     "report",
     "baseline",
+    "policies_validate",
+    "policies_recommend",
+    "policies_diff",
     "persist",
     "load_inventory",
     "graph_load_mcp",

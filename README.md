@@ -226,16 +226,44 @@ findings — not fuzzy anomaly scores:
 guessing from timing); undeclared identities' timing regularity is
 reported as a raw statistic, not classified as "bot" or "human" for you.
 
+### Cedar policy: recommendations and drift detection
+
+```bash
+# Real Cedar syntax validation
+pyapicheck policies validate agent-policy.cedar
+
+# Turn Phase 4 findings into ready-to-use Cedar policy text
+pyapicheck policies recommend openapi.yaml historical.log current.log --agent finance-agent
+
+# Find findings an EXISTING policy would currently allow, with fixes
+pyapicheck policies diff agent-policy.cedar openapi.yaml historical.log current.log --agent finance-agent
+```
+
+Uses [Cedar](https://www.cedarpolicy.com/) (Amazon's policy language) for
+real parsing and evaluation — not a bespoke rules format. Cedar only has
+two effects, `permit`/`forbid`, no native "require approval" — every
+recommendation here is a `forbid`, tagged `@effect_hint("deny")` (a strong
+signal, like BOLA enumeration) or `@effect_hint("require_approval")` (a
+first-time operation that merits review, not an automatic verdict).
+
+`policies diff` doesn't guess whether your existing policy covers a
+finding — it actually evaluates the finding's exact (principal, action,
+resource) through Cedar's real authorizer against your policy file. A
+finding Cedar would currently `Allow` (e.g. a broad `permit` for an agent
+with no carve-out) is a genuine gap, reported with the exact `forbid` text
+that closes it.
+
 ## What this is (and isn't) — yet
 
 `pyapicheck` today parses **declared** API surface from an OpenAPI spec,
 cross-references it against real traffic, builds a security graph of
-agents/tools/resources, and baselines per-identity behavior. It does not
-yet do agent/MCP authorization policy or an AI analyst layer — those are
-the next layers. See [ROADMAP.md](ROADMAP.md) for the concrete,
-phase-by-phase plan from here to the full product vision (an authorization
-and behavior control plane for AI agents and the APIs/MCP servers they
-call). Sensitive-field classification is a lightweight keyword heuristic
+agents/tools/resources, baselines per-identity behavior, and generates/
+validates Cedar policy. It does not yet do inline enforcement or have an
+AI analyst layer — those are the next layers. See
+[ROADMAP.md](ROADMAP.md) for the concrete, phase-by-phase plan from here
+to the full product vision (an authorization and behavior control plane
+for AI agents and the APIs/MCP servers they call). Sensitive-field
+classification is a lightweight keyword heuristic
 (`core/src/classify.rs`), not an NLP model — it's designed to be swapped
 for something like Microsoft Presidio without changing the public API.
 

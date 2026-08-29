@@ -344,17 +344,75 @@ per the risk register in the strategy doc).
 
 ---
 
-## Phase 6 — Agent/MCP policy (advisory)
+## Phase 6 — Agent/MCP policy (advisory) ✅ done (`v0.6.0`, this commit)
 
-- [ ] Cedar policy integration for agent authorization rules (allow / deny
-      / require_approval), matching the YAML shape in the vision doc.
-- [ ] Policy recommendations generated from Phase 4/5 findings — advisory
-      output only, a human applies it. No inline enforcement yet.
-- [ ] `pyapicheck policies` CLI command (list, validate, diff against
-      observed agent behavior).
+### 6.1 Cedar policy integration (`core/src/policy.rs`)
+- [x] Uses the real `cedar-policy` crate (Amazon's Cedar, a local/offline
+      library -- no network call) for parsing, validation, and evaluation.
+      API confirmed against the actual crate via compiler-checked scratch
+      code before writing the real module (parsing, `forbid`/`permit`
+      effects, `@annotations`, and `Authorizer::is_authorized` all
+      exercised for real, not assumed from memory).
+- [x] Entity vocabulary: principals are `Agent::"name"` or `User::"name"`
+      (matching Phase 3's graph labels); the action is always
+      `Action::"CallEndpoint"`; resources are `Endpoint::"METHOD path"`.
+- **Honesty note on "allow / deny / require_approval":** Cedar itself only
+  has two effects, `permit` and `forbid` -- there is no native third
+  "require approval" decision. `require_approval` is represented as a
+  `forbid` policy carrying an `@effect_hint("require_approval")`
+  annotation: the *safe default* is to block until a human reviews it
+  (consistent with Cedar's own default-deny-unless-permitted semantics),
+  and the annotation is what a human (or, later, Phase 5's analyst) reads
+  to know this one is provisional rather than a hard "this is malicious"
+  verdict. Pretending Cedar has a native three-way decision it doesn't
+  would misrepresent what the generated policy actually does at
+  evaluation time.
+
+### 6.2 Policy recommendations from Phase 4 findings (`core/src/policy.rs`)
+- [x] `recommend_from_bola_findings`: one `forbid` policy per BOLA-shaped
+      finding, `@effect_hint("deny")` (sequential-ID enumeration is a
+      strong, concrete signal) with a `@reason(...)` citing the exact
+      accessed-ID run.
+- [x] `recommend_from_first_time_operations`: one `forbid` policy per
+      first-time-observed operation, `@effect_hint("require_approval")`,
+      `@reason(...)` naming the identity and operation.
+- **Scope cut, stated plainly:** the original wording said "Phase 4/5
+  findings" -- Phase 5 (the AI Security Analyst) doesn't exist yet and
+  is explicitly blocked pending a decision about real LLM API calls (see
+  ROADMAP.md Phase 5). Recommendations here are Phase 4-sourced only;
+  Phase 5-sourced recommendations are deferred until Phase 5 exists to
+  source them from.
+
+### 6.3 Policy-drift detection (`core/src/policy.rs`)
+- [x] `diff_against_policy(policy_set, bola_findings, first_time_ops,
+      known_agents)`: for each finding's (principal, action, resource),
+      actually evaluate it against the *existing* policy set via a real
+      `Authorizer::is_authorized` call. A finding that Cedar's real
+      evaluation would currently `Allow` (e.g. a broad `permit` for that
+      agent with no carve-out) is a genuine policy gap; one that's already
+      `Deny` needs no fix. This is real policy evaluation, not a guess
+      about what the policy "probably" does.
+- [x] Every gap comes with the exact, ready-to-add `forbid` policy text
+      that closes it (the same text `recommend_*` would generate for that
+      finding) -- "a concrete, applicable Cedar policy fix," per the
+      original demo requirement, not just a description of the problem.
+
+### CLI (`pyapicheck policies ...`)
+- [x] `pyapicheck policies validate <policy.cedar>`: real Cedar syntax
+      validation via `PolicySet::from_str`, printing Cedar's own parse
+      errors on failure.
+- [x] `pyapicheck policies recommend <spec> <historical-log> <current-log>
+      [--agent NAME ...]`: prints ready-to-use Cedar policy text from
+      Phase 4 findings.
+- [x] `pyapicheck policies diff <policy.cedar> <spec> <historical-log>
+      <current-log> [--agent NAME ...]`: prints policy gaps (findings the
+      existing policy set would currently allow) with fixes.
 
 **Demo:** a policy-drift finding (like the vision doc's worked scenario)
-that produces a concrete, applicable Cedar policy fix.
+that produces a concrete, applicable Cedar policy fix -- verified against
+a hand-written policy file that broadly permits an agent, with a BOLA/
+first-time finding the policy would currently let through, correctly
+identified and fixed.
 
 ---
 
