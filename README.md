@@ -1,21 +1,70 @@
 # pyapicheck
 
-Discover an API inventory from an OpenAPI spec, flag likely-sensitive fields,
-and score every endpoint's risk — with every point on the score traced back
-to a named, human-readable reason. No opaque number.
+**Every risk score traces back to a named, checkable reason. Never a black-box number.**
 
-This is the free-to-use discovery core for a broader idea (a control plane for
-authorizing what AI agents are allowed to do with the APIs they call) — see
-the accompanying product vision doc. `pyapicheck` itself stands alone: point
-it at an OpenAPI spec and it tells you, in about a second, which endpoints
-are unauthenticated, which touch PII/financial/credential data, and which
-combination of the two is the actual emergency.
+[![PyPI](https://img.shields.io/pypi/v/pyapicheck?color=blue)](https://pypi.org/project/pyapicheck/)
+[![CI](https://github.com/Mullassery/PyAPICheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/PyAPICheck/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/pypi/pyversions/pyapicheck)](https://pypi.org/project/pyapicheck/)
+[![License: free-to-use](https://img.shields.io/badge/license-free--to--use-lightgrey)](LICENSE)
 
-The parsing, classification, and scoring engine is Rust (`core/`); this
-package is a thin Python CLI/SDK wrapper over it (`bindings/` + `python/`),
-built with [PyO3](https://pyo3.rs) and [maturin](https://www.maturin.rs).
+## The problem
 
-## Install (from source, for now)
+OpenAPI specs outgrow the point where anyone can eyeball them for security
+issues. A refunds endpoint ships with no auth override. A `DELETE` route
+inherits no security scheme because the global default got excluded from a
+build config. A field named `account_number` sails past unnoticed. These
+aren't exotic bugs — each one is a single missing YAML line, sitting
+undetected in a spec with hundreds of endpoints until someone finds it the
+hard way.
+
+The tooling that exists doesn't close the gap:
+
+- **Scanners hand you a severity number with no way to check it.** A human
+  still has to go verify the finding is real before anyone acts on it —
+  which means findings that can't be trusted get ignored, which defeats the
+  point of scanning at all.
+- **Spec-only tools don't know what's actually happening in production.**
+  They can't tell a genuinely dead endpoint from a live one, or a normal
+  integration calling a new resource ID from an enumeration attack.
+- **Nothing is built for the problem that's arriving next**: AI agents
+  calling these same APIs under their own identity, with their own
+  behavioral patterns, and no authorization model designed for them.
+
+`pyapicheck` is built around one rule: **every finding names the exact
+factor that produced it.** Not "risk score: 73" — `[CRITICAL] Sensitive
+data is reachable without authentication`, every time. And it doesn't stop
+at the spec: it cross-references real gateway traffic, builds a security
+graph of agents and what they can reach, baselines behavior per identity,
+and turns findings into real [Cedar](https://www.cedarpolicy.com/) policy
+you can validate and evaluate — not a report you have to take on faith.
+
+## Table of contents
+
+- [Install](#install)
+- [Quick start](#use)
+- [Discovering a whole repo, or a Postman collection](#discovering-a-whole-repo-or-a-postman-collection)
+- [Drift detection](#drift-detection)
+- [Observed vs. declared: shadow and zombie endpoints](#observed-vs-declared-shadow-and-zombie-endpoints)
+- [Persisting to Postgres](#persisting-to-postgres-optional)
+- [Automated remediation](#automated-remediation)
+- [Security graph: MCP/agent discovery, reachability, blast radius](#security-graph-mcpagent-discovery-reachability-blast-radius)
+- [Behavioral baselining: BOLA-shaped access and first-time operations](#behavioral-baselining-bola-shaped-access-and-first-time-operations)
+- [Cedar policy: recommendations and drift detection](#cedar-policy-recommendations-and-drift-detection)
+- [Emitting an enforcement artifact (Envoy)](#emitting-an-enforcement-artifact-envoy)
+- [What this is (and isn't) — yet](#what-this-is-and-isnt--yet)
+
+The parsing, classification, scoring, graph, and policy engine is Rust
+(`core/`); this package is a thin Python CLI/SDK wrapper over it
+(`bindings/` + `python/`), built with [PyO3](https://pyo3.rs) and
+[maturin](https://www.maturin.rs).
+
+## Install
+
+```bash
+pip install pyapicheck
+```
+
+Or from source (for Rust-side development):
 
 ```bash
 uv venv .venv --python 3.12
@@ -295,3 +344,10 @@ maturin develop                 # rebuild the extension into .venv after Rust ch
 
 Proprietary License — Free to use with explicit attribution. See
 [LICENSE](LICENSE).
+
+---
+
+If `pyapicheck` catches something in your API surface a scanner would've
+handed you as an unexplained number, a star helps other people find it too.
+Issues and PRs are welcome — see [ROADMAP.md](ROADMAP.md) for what's next
+and what's deliberately not built yet.
