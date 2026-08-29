@@ -6,6 +6,7 @@ import json
 import os
 import sys
 
+from . import baseline as _baseline
 from . import diff as _diff_specs
 from . import discover as _discover_inventory
 from . import discover_directory as _discover_directory
@@ -229,6 +230,53 @@ def _cmd_remediate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_baseline(args: argparse.Namespace) -> int:
+    try:
+        result = _baseline(
+            args.spec, args.historical_log, args.current_log, known_agents=args.agent or []
+        )
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    baselines = result["baselines"]
+    bola_findings = result["bola_findings"]
+    first_time_ops = result["first_time_operations"]
+
+    print(f"\n{len(baselines)} identit(y/ies) observed:\n")
+    for b in baselines:
+        agent_tag = " [agent]" if b["is_known_agent"] else ""
+        regularity = (
+            f"{b['timing_regularity']:.3f}" if b["timing_regularity"] is not None else "n/a"
+        )
+        print(
+            f"  {b['identity']:<20}{agent_tag}  requests={b['total_requests']:<5} "
+            f"resources={b['distinct_resources']:<4} error_rate={b['error_rate']:.2f} "
+            f"req/min={b['requests_per_minute']:.2f} timing_cv={regularity}"
+        )
+
+    if bola_findings:
+        print(f"\n{len(bola_findings)} BOLA-shaped finding(s) (sequential ID access):")
+        for f in bola_findings:
+            print(
+                f"  {f['identity']:<20} {f['method']:<7} {f['path_template']:<28} "
+                f"run of {f['run_length']} sequential IDs: {f['accessed_ids']}"
+            )
+
+    if first_time_ops:
+        print(f"\n{len(first_time_ops)} first-time-observed operation(s):")
+        for op in first_time_ops:
+            ts = f" at {op['timestamp']}" if op["timestamp"] else ""
+            print(f"  {op['identity']:<20} {op['method']:<7} {op['path']}{ts}")
+
+    print()
+    return 0
+
+
 def _cmd_graph_load_mcp(args: argparse.Namespace) -> int:
     try:
         servers = _graph_load_mcp(args.db_url, args.config, args.timeout)
@@ -373,6 +421,27 @@ def main(argv=None) -> int:
         help="Postgres URL to persist this inventory + traffic to, in addition to printing it",
     )
     report_parser.set_defaults(func=_cmd_report)
+
+    baseline_parser = sub.add_parser(
+        "baseline",
+        help="Per-identity behavioral baselines, BOLA-shaped findings, and first-time operations",
+    )
+    baseline_parser.add_argument("spec", help="Path to an OpenAPI 3.x YAML or JSON file")
+    baseline_parser.add_argument(
+        "historical_log", help="Path to an NDJSON gateway access log covering the baseline window"
+    )
+    baseline_parser.add_argument(
+        "current_log", help="Path to an NDJSON gateway access log covering the window to evaluate"
+    )
+    baseline_parser.add_argument(
+        "--agent",
+        action="append",
+        help="Identity known to be a declared agent, not inferred from timing (repeatable)",
+    )
+    baseline_parser.add_argument(
+        "--json", action="store_true", help="Output the raw baseline report as JSON"
+    )
+    baseline_parser.set_defaults(func=_cmd_baseline)
 
     graph_parser = sub.add_parser(
         "graph", help="Security graph: MCP/agent discovery, reachability, blast radius"

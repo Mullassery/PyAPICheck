@@ -88,19 +88,48 @@ pub async fn persist_traffic(
 ) -> Result<(), String> {
     for record in records {
         sqlx::query(
-            "INSERT INTO traffic_records (inventory_id, method, path, status, observed_at)
-             VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO traffic_records (inventory_id, method, path, status, observed_at, identity)
+             VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(inventory_id)
         .bind(&record.method)
         .bind(&record.path)
         .bind(i32::from(record.status))
         .bind(&record.timestamp)
+        .bind(&record.identity)
         .execute(pool)
         .await
         .map_err(|e| format!("failed to insert traffic record: {e}"))?;
     }
     Ok(())
+}
+
+/// Re-read every traffic record persisted against an inventory, in
+/// insertion order.
+pub async fn load_traffic(pool: &PgPool, inventory_id: i64) -> Result<Vec<TrafficRecord>, String> {
+    let rows = sqlx::query(
+        "SELECT method, path, status, observed_at, identity FROM traffic_records
+         WHERE inventory_id = $1 ORDER BY id",
+    )
+    .bind(inventory_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("failed to load traffic for inventory {inventory_id}: {e}"))?;
+
+    rows.into_iter()
+        .map(|row| {
+            let status: i32 = row.try_get("status").map_err(|e| e.to_string())?;
+            Ok(TrafficRecord {
+                method: row.try_get("method").map_err(|e| e.to_string())?,
+                path: row.try_get("path").map_err(|e| e.to_string())?,
+                status: status
+                    .try_into()
+                    .map_err(|_| format!("invalid status code: {status}"))?,
+                timestamp: row.try_get("observed_at").map_err(|e| e.to_string())?,
+                identity: row.try_get("identity").map_err(|e| e.to_string())?,
+            })
+        })
+        .collect()
 }
 
 /// Re-read an inventory back from Postgres by id, reconstructing the same
@@ -240,5 +269,33 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[tokio::test]
+    async fn round_trips_traffic_records_including_identity() {
+        let Some(pool) = test_pool_or_skip().await else {
+            eprintln!("skipping: DATABASE_URL not set");
+            return;
+        };
+
+        let inventory = crate::discover_from_str(
+            include_str!("../tests/fixtures/sample-openapi.yaml"),
+            "test-source-4",
+        )
+        .unwrap();
+        let inventory_id = persist_inventory(&pool, &inventory).await.unwrap();
+
+        let records = crate::parse_access_log(
+            r#"{"request_method": "GET", "request_uri": "/api/v1/health", "status": 200, "user_id": "alice"}
+{"request_method": "GET", "request_uri": "/api/v1/orders/1", "status": 200}"#,
+        );
+        persist_traffic(&pool, inventory_id, &records)
+            .await
+            .unwrap();
+
+        let loaded = load_traffic(&pool, inventory_id).await.unwrap();
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0].identity, Some("alice".to_string()));
+        assert_eq!(loaded[1].identity, None);
     }
 }

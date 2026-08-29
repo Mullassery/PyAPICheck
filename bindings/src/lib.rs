@@ -62,6 +62,31 @@ fn report(spec_path: String, access_log_path: String) -> PyResult<String> {
     serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Discover `spec_path`, then compute per-identity baselines, BOLA-shaped
+/// sequential-ID findings, and first-time-observed-operation findings from
+/// two traffic snapshots. Returns
+/// `{"baselines": [...], "bola_findings": [...], "first_time_operations": [...]}`
+/// as JSON.
+#[pyfunction]
+#[pyo3(signature = (spec_path, historical_log_path, current_log_path, known_agents=vec![]))]
+#[allow(clippy::useless_conversion)]
+fn baseline(
+    spec_path: String,
+    historical_log_path: String,
+    current_log_path: String,
+    known_agents: Vec<String>,
+) -> PyResult<String> {
+    let known_agents: std::collections::HashSet<String> = known_agents.into_iter().collect();
+    let result = pyapicheck_core::baseline_from_files(
+        std::path::Path::new(&spec_path),
+        std::path::Path::new(&historical_log_path),
+        std::path::Path::new(&current_log_path),
+        &known_agents,
+    )
+    .map_err(PyValueError::new_err)?;
+    serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// Discover `spec_path` (and, if given, cross-reference `access_log_path`),
 /// then persist the result to Postgres at `database_url` (running
 /// migrations first). Returns the new inventory's row id. Opt-in only --
@@ -240,6 +265,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(discover_directory, m)?)?;
     m.add_function(wrap_pyfunction!(diff, m)?)?;
     m.add_function(wrap_pyfunction!(report, m)?)?;
+    m.add_function(wrap_pyfunction!(baseline, m)?)?;
     m.add_function(wrap_pyfunction!(persist, m)?)?;
     m.add_function(wrap_pyfunction!(load_inventory, m)?)?;
     m.add_function(wrap_pyfunction!(graph_load_mcp, m)?)?;

@@ -1,3 +1,4 @@
+pub mod baseline;
 pub mod classify;
 pub mod db;
 pub mod discover_dir;
@@ -20,10 +21,53 @@ use serde::Serialize;
 use std::fs;
 use std::path::Path;
 
+pub use baseline::{
+    build_baselines, detect_first_time_operations, detect_sequential_id_access, BolaFinding,
+    FirstTimeOperation, IdentityBaseline,
+};
 pub use discover_dir::discover_from_directory;
 pub use drift::{diff_inventories, DriftReport};
 pub use lifecycle::{build_lifecycle_report, LifecycleReport};
+use std::collections::HashSet;
 pub use traffic::{parse_access_log, TrafficRecord};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BaselineResult {
+    pub baselines: Vec<IdentityBaseline>,
+    pub bola_findings: Vec<BolaFinding>,
+    pub first_time_operations: Vec<FirstTimeOperation>,
+}
+
+const BOLA_MIN_RUN_LENGTH: usize = 3;
+
+/// Discover `spec_path`, then compute per-identity baselines (over
+/// historical + current traffic combined), BOLA-shaped sequential-ID
+/// findings (over current traffic), and first-time-observed-operation
+/// findings (current vs. historical) -- see ROADMAP.md Phase 4.
+pub fn baseline_from_files(
+    spec_path: &Path,
+    historical_log_path: &Path,
+    current_log_path: &Path,
+    known_agents: &HashSet<String>,
+) -> Result<BaselineResult, String> {
+    let inventory = discover_from_file(spec_path)?;
+
+    let historical_text = fs::read_to_string(historical_log_path)
+        .map_err(|e| format!("failed to read {}: {e}", historical_log_path.display()))?;
+    let current_text = fs::read_to_string(current_log_path)
+        .map_err(|e| format!("failed to read {}: {e}", current_log_path.display()))?;
+    let historical = parse_access_log(&historical_text);
+    let current = parse_access_log(&current_text);
+
+    let mut combined = historical.clone();
+    combined.extend(current.iter().cloned());
+
+    Ok(BaselineResult {
+        baselines: build_baselines(&combined, known_agents),
+        bola_findings: detect_sequential_id_access(&inventory, &current, BOLA_MIN_RUN_LENGTH),
+        first_time_operations: detect_first_time_operations(&inventory, &historical, &current),
+    })
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ReportResult {

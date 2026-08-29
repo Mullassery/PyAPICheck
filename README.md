@@ -200,18 +200,44 @@ as "zero tools." An agent can only be linked to a tool/API that's already
 been discovered -- `graph add-agent` fails loudly if you reference one
 that isn't in the graph yet, rather than silently no-op-ing.
 
+### Behavioral baselining: BOLA-shaped access and first-time operations
+
+```bash
+pyapicheck baseline openapi.yaml historical-access.log current-access.log --agent finance-agent
+```
+
+Given a caller identity in the traffic (extracted from common log fields
+like `user_id`/`agent_id`/`sub` -- not every gateway log carries one out of
+the box), this computes per-identity baselines (request volume, error rate, distinct
+resources touched, timing regularity) and two concrete, checkable
+findings — not fuzzy anomaly scores:
+
+- **Sequential-ID access** (`BOLA-shaped finding`): an identity hitting a
+  single-numeric-ID endpoint with a run of near-sequential IDs (`1, 2, 3,
+  4, ...`) — the classic enumeration signature.
+- **First-time-observed operation**: an identity calling a declared
+  endpoint it has never called before, compared against the historical
+  log — the exact "a known agent does something it's never done before"
+  trigger from the product vision's worked scenario. This is keyed on the
+  *endpoint template*, not the concrete resource path, so touching a new
+  resource ID on an already-familiar endpoint doesn't create noise.
+
+`--agent NAME` marks an identity as a declared agent (rather than
+guessing from timing); undeclared identities' timing regularity is
+reported as a raw statistic, not classified as "bot" or "human" for you.
+
 ## What this is (and isn't) — yet
 
 `pyapicheck` today parses **declared** API surface from an OpenAPI spec,
-cross-references it against real traffic, and builds a security graph of
-agents/tools/resources. It does not yet do behavioral baselining or agent/
-MCP authorization — those are the next layers. See [ROADMAP.md](ROADMAP.md)
-for the concrete, phase-by-phase plan from here to the full product vision
-(an authorization and behavior control plane for AI agents and the APIs/MCP
-servers they call). Sensitive-field classification is a lightweight keyword
-heuristic (`core/src/classify.rs`), not an NLP model — it's designed to be
-swapped for something like Microsoft Presidio without changing the public
-API.
+cross-references it against real traffic, builds a security graph of
+agents/tools/resources, and baselines per-identity behavior. It does not
+yet do agent/MCP authorization policy or an AI analyst layer — those are
+the next layers. See [ROADMAP.md](ROADMAP.md) for the concrete,
+phase-by-phase plan from here to the full product vision (an authorization
+and behavior control plane for AI agents and the APIs/MCP servers they
+call). Sensitive-field classification is a lightweight keyword heuristic
+(`core/src/classify.rs`), not an NLP model — it's designed to be swapped
+for something like Microsoft Presidio without changing the public API.
 
 ## Development
 

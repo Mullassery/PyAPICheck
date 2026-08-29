@@ -53,6 +53,25 @@ def report(spec_path: str, access_log_path: str) -> dict:
     return json.loads(_core.report(spec_path, access_log_path))
 
 
+def baseline(
+    spec_path: str,
+    historical_log_path: str,
+    current_log_path: str,
+    known_agents: list = None,
+) -> dict:
+    """Discover `spec_path`, then compute per-identity baselines (call
+    frequency, error rate, timing regularity) over the combined historical
+    + current traffic, BOLA-shaped sequential-ID findings over current
+    traffic, and first-time-observed-operation findings (current vs.
+    historical) per identity. `known_agents` marks which identities are
+    declared agents (e.g. from `graph_reachable`'s Agent vertices) rather
+    than inferring it from timing alone. Returns `{"baselines": [...],
+    "bola_findings": [...], "first_time_operations": [...]}`."""
+    return json.loads(
+        _core.baseline(spec_path, historical_log_path, current_log_path, known_agents or [])
+    )
+
+
 def persist(database_url: str, spec_path: str, access_log_path: str = None) -> int:
     """Discover `spec_path` (and, if given, cross-reference
     `access_log_path`), then persist the result to the Postgres database at
@@ -129,6 +148,7 @@ __all__ = [
     "discover_path",
     "diff",
     "report",
+    "baseline",
     "persist",
     "load_inventory",
     "graph_load_mcp",

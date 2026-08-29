@@ -251,23 +251,72 @@ a follow-up once the graph primitives above are proven correct).
 
 ---
 
-## Phase 4 — Behavioral baselining
+## Phase 4 — Behavioral baselining ✅ done (`v0.5.0`, this commit)
 
 Goal: know what's normal, per identity — human and non-human separately.
 
-- [ ] Per-identity baseline: call frequency, resource set touched,
-      sequence patterns, error rates — built from Phase 2's traffic store.
-- [ ] Agent baselines specifically: agents baseline differently than
-      humans (machine-regular timing, no idle periods) — do not reuse the
-      human-traffic anomaly model unmodified.
-- [ ] BOLA-shaped detection: resource-ID co-occurrence and sequential-ID
-      traversal, cross-referenced against the ownership graph from Phase 3.
-- [ ] First-time-observed-operation detection per identity (the trigger
-      condition for the worked scenario in the product vision doc).
+### 4.1 Identity attribution in traffic (`core/src/traffic.rs`)
+- [x] Extend `TrafficRecord` with `identity: Option<String>`, extracted
+      from common gateway log field-name variants (`user_id`, `agent_id`,
+      `client_id`, `remote_user`, `identity`, `sub`) the same way method/
+      path/status already are. Records with no recognizable identity field
+      still count for Phase 2's endpoint-level lifecycle report (no
+      regression); they're simply excluded from per-identity analysis
+      below, since there's nothing to attribute them to.
+- **Honesty note:** not every real gateway log carries a caller identity
+  out of the box — this phase's per-identity analysis only applies where
+  one is present in the log.
+
+### 4.2 Per-identity baseline (`core/src/baseline.rs`)
+- [x] `IdentityBaseline`: total requests, distinct operations touched,
+      error rate, requests/minute, and `timing_regularity` (coefficient of
+      variation of inter-arrival times — low = machine-regular, high =
+      bursty/human) computed per identity from a batch of `TrafficRecord`s.
+- [x] Callers mark which identities are known agents (a `&HashSet<String>`
+      of names — e.g. sourced from Phase 3's graph `Agent` vertices)
+      rather than `baseline.rs` guessing from timing alone: "agents
+      baseline differently than humans" per the roadmap, but declared
+      identity is ground truth where it exists; inferring agent-vs-human
+      purely from a regularity statistic would be exactly the kind of
+      unverifiable judgment call this project's findings discipline (every
+      claim traces to a named, checkable reason) rules out. Where an
+      identity *isn't* a declared agent, `timing_regularity` is reported
+      as a raw statistic for a human to interpret, not classified for them.
+
+### 4.3 BOLA-shaped detection (`core/src/baseline.rs`)
+- [x] `detect_sequential_id_access`: for declared endpoints with exactly
+      one numeric `{id}`-style path parameter, group observed traffic by
+      (identity, endpoint), sort chronologically, and flag runs of
+      near-sequential integer IDs accessed by the same identity (the
+      classic BOLA-enumeration signature) — a concrete, checkable pattern,
+      not a fuzzy anomaly score.
+- **Scope cut, stated plainly:** the original wording called for
+  cross-referencing this against "the ownership graph from Phase 3." Phase
+  3's `Resource` vertices are resource *types* (e.g. `accounts_table`),
+  not resource *instances* (e.g. "account #42 belongs to user X") — there
+  is no per-record ownership data anywhere in this project to cross-
+  reference against. Building a fake instance-ownership graph to satisfy
+  the letter of this bullet would be exactly the kind of stub-that-
+  pretends-to-work this project's own conventions rule out. Sequential-ID
+  detection ships; the ownership cross-reference is deferred until a real
+  source of per-record ownership exists to join against.
+
+### 4.4 First-time-observed-operation detection (`core/src/baseline.rs`)
+- [x] `detect_first_time_operations(historical, current)`: every
+      (identity, method, path) in `current` traffic that never appeared
+      for that identity in `historical` traffic — the exact trigger
+      condition for the vision doc's worked scenario.
+
+### CLI
+- [x] `pyapicheck baseline <spec> <historical-log> <current-log>
+      [--agent NAME ...]`: prints per-identity baselines, BOLA findings,
+      and first-time-operation findings in one report.
 
 **Demo:** the exact `finance-agent` scenario from the vision doc — a
 first-time-observed operation from a known agent identity, flagged
-correctly, on real (or realistically synthetic) traffic.
+correctly, on realistic fixture traffic (two log snapshots: a
+"historical" baseline window and a "current" window with one genuinely
+new operation).
 
 ---
 

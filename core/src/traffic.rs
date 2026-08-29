@@ -17,6 +17,12 @@ pub struct TrafficRecord {
     pub path: String,
     pub status: u16,
     pub timestamp: Option<String>,
+    /// The caller identity, if the log carries one -- not every gateway
+    /// log format does out of the box. `None` means "can't attribute",
+    /// not "anonymous"; records without an identity still count toward
+    /// Phase 2's endpoint-level lifecycle report but are excluded from
+    /// Phase 4's per-identity analysis (see ROADMAP.md Phase 4.1).
+    pub identity: Option<String>,
 }
 
 /// Field-name variants seen across common NGINX and Envoy JSON access-log
@@ -25,6 +31,14 @@ const METHOD_FIELDS: &[&str] = &["request_method", "method", "http_method"];
 const PATH_FIELDS: &[&str] = &["request_uri", "path", "uri", "url_path"];
 const STATUS_FIELDS: &[&str] = &["status", "response_code", "status_code"];
 const TIME_FIELDS: &[&str] = &["time", "timestamp", "start_time", "time_local"];
+const IDENTITY_FIELDS: &[&str] = &[
+    "user_id",
+    "agent_id",
+    "client_id",
+    "remote_user",
+    "identity",
+    "sub",
+];
 
 /// Parse an NDJSON access log: one JSON object per line. Lines that are
 /// blank, not valid JSON, or missing a recognizable method/path/status
@@ -46,12 +60,14 @@ fn parse_line(line: &str) -> Option<TrafficRecord> {
     let path = raw_path.split('?').next().unwrap_or(raw_path).to_string();
     let status = first_status_field(&value, STATUS_FIELDS)?;
     let timestamp = first_str_field(&value, TIME_FIELDS).map(str::to_string);
+    let identity = first_str_field(&value, IDENTITY_FIELDS).map(str::to_string);
 
     Some(TrafficRecord {
         method,
         path,
         status,
         timestamp,
+        identity,
     })
 }
 
@@ -96,6 +112,14 @@ mod tests {
         assert_eq!(records[0].method, "DELETE");
         assert_eq!(records[0].path, "/users/9");
         assert_eq!(records[0].status, 204);
+    }
+
+    #[test]
+    fn extracts_identity_when_present_and_leaves_it_none_when_absent() {
+        let log = "{\"request_method\": \"GET\", \"request_uri\": \"/widgets/1\", \"status\": 200, \"user_id\": \"alice\"}\n{\"request_method\": \"GET\", \"request_uri\": \"/widgets/2\", \"status\": 200}";
+        let records = parse_access_log(log);
+        assert_eq!(records[0].identity, Some("alice".to_string()));
+        assert_eq!(records[1].identity, None);
     }
 
     #[test]

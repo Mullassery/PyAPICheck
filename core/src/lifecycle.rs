@@ -40,7 +40,7 @@ pub struct LifecycleReport {
 /// True if a concrete observed path matches a declared OpenAPI/Postman
 /// path template: same segment count, and every non-`{param}` template
 /// segment matches literally.
-fn path_matches_template(observed: &str, template: &str) -> bool {
+pub(crate) fn path_matches_template(observed: &str, template: &str) -> bool {
     let observed_segments: Vec<&str> = observed
         .trim_matches('/')
         .split('/')
