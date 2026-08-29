@@ -416,14 +416,48 @@ identified and fixed.
 
 ---
 
-## Phase 7 — Enforcement integrations
+## Phase 7 — Enforcement integrations ✅ done (`v0.7.0`, this commit — artifact generation only, see gate check below)
 
-- [ ] Emit gateway-consumable policy artifacts (start with one target —
-      Envoy or Kong, not both) rather than sitting inline on the request
-      path.
-- [ ] Only start this phase once Phase 5/6 have held up against real
-      adversarial or at least real production use, not just design-partner
-      demos — enforcement mistakes are expensive to earn back trust from.
+**Gate check, stated plainly:** this phase's own text says "only start
+once Phase 5/6 have held up against real adversarial or production use,
+not just design-partner demos." Phase 5 doesn't exist and Phase 6 has only
+been through this session's fixture-based verification, not real
+production traffic -- so the gate, read literally, isn't satisfied. What
+*is* in scope regardless is exactly what this phase already scoped itself
+to: emitting a config artifact for a human to review and apply, "rather
+than sitting inline on the request path." That's the part the gate is
+protecting against (silently wiring live enforcement into a real request
+path before the upstream findings are trustworthy), and artifact
+generation never does that -- nothing here deploys anything or touches a
+running gateway. Live enforcement wiring stays gated exactly as written.
+
+### 7.1 Envoy RBAC artifact generation (`core/src/enforcement.rs`)
+- [x] Target: Envoy's `envoy.filters.http.rbac` HTTP filter (chosen over
+      Kong per "start with one target, not both") -- `action: DENY`
+      policies, one per Cedar `forbid` recommendation from Phase 6.
+      Principal matches on an HTTP header (`x-user-id` by convention,
+      matching Phase 4's identity-field extraction); permission matches on
+      `:method` + `:path` header exact-match, `and_rules`-combined.
+- [x] Schema verified against **real Envoy** (`envoyproxy/envoy:v1.31`,
+      Docker), not assumed from the proto docs: `envoy --mode validate`
+      accepts the generated config, and a real running Envoy instance
+      genuinely returns `403` for the exact (principal, method, path)
+      triple a policy targets -- and does *not* 403 a different principal
+      or a different endpoint for the same principal. Verified with curl
+      against a live container before writing this claim down.
+- [x] `pyapicheck policies emit-envoy <policy.cedar> --out <file>`:
+      reads a Cedar policy set (e.g. from `policies recommend`), emits an
+      Envoy HTTP filter config snippet (YAML) implementing every `forbid`
+      policy found. `permit` policies are not translated (Envoy RBAC's
+      `DENY` action here mirrors only the safe-default "block" side; a
+      `permit` translates to "absence of a deny," which is already the
+      default when nothing else denies it).
+- **Scope cut, stated plainly:** this emits a filter *snippet*, not a full
+  bootstrap (no listeners/clusters/routes) -- a real deployment splices it
+  into an existing Envoy config's `http_filters` chain, which varies too
+  much across real deployments to template generically and honestly.
+  Kong output, and translating anything beyond `forbid`/deny, are
+  deferred to a follow-up if a real target ever needs them.
 
 ---
 

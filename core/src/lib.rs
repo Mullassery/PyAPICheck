@@ -3,6 +3,7 @@ pub mod classify;
 pub mod db;
 pub mod discover_dir;
 pub mod drift;
+pub mod enforcement;
 pub mod graph;
 pub mod lifecycle;
 pub mod mcp;
@@ -76,6 +77,14 @@ pub fn validate_policy_file(path: &Path) -> Result<cedar_policy::PolicySet, Stri
     let text =
         fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
     policy::parse_policy_set(&text)
+}
+
+/// Parse a Cedar policy file and emit an Envoy RBAC HTTP filter config
+/// snippet implementing its `forbid` policies -- see ROADMAP.md Phase 7.1.
+/// `None` means there was nothing to translate (no `forbid` policies).
+pub fn emit_envoy_rbac_from_file(path: &Path) -> Result<Option<String>, String> {
+    let policy_set = validate_policy_file(path)?;
+    Ok(enforcement::emit_envoy_rbac(&policy_set))
 }
 
 /// Run Phase 4's baseline detectors over the given spec/logs, then

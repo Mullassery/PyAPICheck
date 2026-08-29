@@ -16,6 +16,7 @@ from . import graph_load_mcp as _graph_load_mcp
 from . import graph_reachable as _graph_reachable
 from . import persist as _persist
 from . import policies_diff as _policies_diff
+from . import policies_emit_envoy as _policies_emit_envoy
 from . import policies_recommend as _policies_recommend
 from . import policies_validate as _policies_validate
 from . import remediate as _remediate_spec
@@ -301,6 +302,26 @@ def _cmd_policies_diff(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_policies_emit_envoy(args: argparse.Namespace) -> int:
+    try:
+        snippet = _policies_emit_envoy(args.policy)
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if snippet is None:
+        print(f"no forbid policies in {args.policy}: nothing to emit", file=sys.stderr)
+        return 0
+
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.write(snippet)
+        print(f"wrote Envoy RBAC filter snippet to {args.out}", file=sys.stderr)
+    else:
+        print(snippet)
+    return 0
+
+
 def _cmd_baseline(args: argparse.Namespace) -> int:
     try:
         result = _baseline(
@@ -564,6 +585,16 @@ def main(argv=None) -> int:
     )
     policies_diff_parser.add_argument("--json", action="store_true", help="Output raw JSON")
     policies_diff_parser.set_defaults(func=_cmd_policies_diff)
+
+    emit_envoy_parser = policies_sub.add_parser(
+        "emit-envoy",
+        help="Emit an Envoy RBAC HTTP filter config snippet from a Cedar policy's forbid rules",
+    )
+    emit_envoy_parser.add_argument("policy", help="Path to a Cedar policy file")
+    emit_envoy_parser.add_argument(
+        "--out", default=None, help="Write the snippet to this file instead of stdout"
+    )
+    emit_envoy_parser.set_defaults(func=_cmd_policies_emit_envoy)
 
     graph_parser = sub.add_parser(
         "graph", help="Security graph: MCP/agent discovery, reachability, blast radius"

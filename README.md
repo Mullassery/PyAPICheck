@@ -253,13 +253,30 @@ finding Cedar would currently `Allow` (e.g. a broad `permit` for an agent
 with no carve-out) is a genuine gap, reported with the exact `forbid` text
 that closes it.
 
+### Emitting an enforcement artifact (Envoy)
+
+```bash
+pyapicheck policies emit-envoy agent-policy.cedar --out rbac-filter.yaml
+```
+
+Translates a Cedar policy's `forbid` rules into an Envoy
+`envoy.filters.http.rbac` HTTP filter config snippet — a config artifact
+for a human to splice into a real Envoy deployment's `http_filters` chain,
+not something this command deploys or wires into a live request path
+itself. The generated schema was verified against a real Envoy instance
+(`envoyproxy/envoy`, Docker): `envoy --mode validate` accepts it, and a
+live container genuinely returns `403` for the exact (principal, method,
+path) a policy targets — and does not `403` a different principal or a
+different endpoint for the same principal.
+
 ## What this is (and isn't) — yet
 
 `pyapicheck` today parses **declared** API surface from an OpenAPI spec,
 cross-references it against real traffic, builds a security graph of
-agents/tools/resources, baselines per-identity behavior, and generates/
-validates Cedar policy. It does not yet do inline enforcement or have an
-AI analyst layer — those are the next layers. See
+agents/tools/resources, baselines per-identity behavior, generates/
+validates Cedar policy, and can emit an Envoy enforcement artifact from
+that policy. It does not yet wire that artifact into a live gateway
+itself, or have an AI analyst layer — those are the next layers. See
 [ROADMAP.md](ROADMAP.md) for the concrete, phase-by-phase plan from here
 to the full product vision (an authorization and behavior control plane
 for AI agents and the APIs/MCP servers they call). Sensitive-field

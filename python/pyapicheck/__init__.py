@@ -119,6 +119,16 @@ def policies_diff(
     )
 
 
+def policies_emit_envoy(policy_path: str) -> str:
+    """Parse the Cedar policy file at `policy_path` and emit an Envoy
+    `envoy.filters.http.rbac` HTTP filter config snippet (YAML)
+    implementing its `forbid` policies -- a gateway-consumable artifact
+    for a human to review and splice into a real Envoy deployment, not
+    something this function deploys itself. Returns `None` if the policy
+    set has no `forbid` policies to translate."""
+    return _core.policies_emit_envoy(policy_path)
+
+
 def persist(database_url: str, spec_path: str, access_log_path: str = None) -> int:
     """Discover `spec_path` (and, if given, cross-reference
     `access_log_path`), then persist the result to the Postgres database at
@@ -199,6 +209,7 @@ __all__ = [
     "policies_validate",
     "policies_recommend",
     "policies_diff",
+    "policies_emit_envoy",
     "persist",
     "load_inventory",
     "graph_load_mcp",

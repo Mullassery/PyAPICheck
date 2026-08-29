@@ -148,6 +148,16 @@ fn policies_diff(
     serde_json::to_string(&gaps).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// Parse a Cedar policy file and emit an Envoy `envoy.filters.http.rbac`
+/// HTTP filter config snippet (YAML) implementing its `forbid` policies.
+/// Returns `None` if there were no `forbid` policies to translate.
+#[pyfunction]
+#[allow(clippy::useless_conversion)]
+fn policies_emit_envoy(policy_path: String) -> PyResult<Option<String>> {
+    pyapicheck_core::emit_envoy_rbac_from_file(std::path::Path::new(&policy_path))
+        .map_err(PyValueError::new_err)
+}
+
 /// Discover `spec_path` (and, if given, cross-reference `access_log_path`),
 /// then persist the result to Postgres at `database_url` (running
 /// migrations first). Returns the new inventory's row id. Opt-in only --
@@ -330,6 +340,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(policies_validate, m)?)?;
     m.add_function(wrap_pyfunction!(policies_recommend, m)?)?;
     m.add_function(wrap_pyfunction!(policies_diff, m)?)?;
+    m.add_function(wrap_pyfunction!(policies_emit_envoy, m)?)?;
     m.add_function(wrap_pyfunction!(persist, m)?)?;
     m.add_function(wrap_pyfunction!(load_inventory, m)?)?;
     m.add_function(wrap_pyfunction!(graph_load_mcp, m)?)?;
