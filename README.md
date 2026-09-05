@@ -5,7 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/pyapicheck?color=blue)](https://pypi.org/project/pyapicheck/)
 [![CI](https://github.com/Mullassery/PyAPICheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/PyAPICheck/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/pypi/pyversions/pyapicheck)](https://pypi.org/project/pyapicheck/)
-[![License: free-to-use](https://img.shields.io/badge/license-free--to--use-lightgrey)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
 ## The problem
 
@@ -342,8 +342,7 @@ maturin develop                 # rebuild the extension into .venv after Rust ch
 
 ## License
 
-Proprietary License — Free to use with explicit attribution. See
-[LICENSE](LICENSE).
+This project is licensed under the [Apache License 2.0](LICENSE).
 
 ---
 

@@ -10,4 +10,4 @@ default-members = ["core"]
 [workspace.package]
 version = "0.7.0"
 edition = "2021"
-license = "Proprietary"
+license = "Apache-2.0"
