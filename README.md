@@ -38,8 +38,31 @@ graph of agents and what they can reach, baselines behavior per identity,
 and turns findings into real [Cedar](https://www.cedarpolicy.com/) policy
 you can validate and evaluate — not a report you have to take on faith.
 
+## Use cases
+
+- **A one-off security review of an OpenAPI spec** before it ships —
+  `pyapicheck discover openapi.yaml`, or the same across an entire repo/
+  monorepo of services (`pyapicheck discover ./services/`).
+- **Gating CI on API security regressions** — `pyapicheck discover
+  openapi.yaml --fail-on-high` exits non-zero on anything HIGH/CRITICAL, or
+  `pyapicheck diff` between two spec revisions to catch a newly-added
+  endpoint that ships with no auth.
+- **Finding endpoints nobody's using, or traffic nobody declared** —
+  `pyapicheck report openapi.yaml access.log` cross-references the spec
+  against real gateway logs for zombie/shadow endpoints.
+- **Governing what AI agents/MCP tools can actually reach** — build a
+  security graph from a live MCP config, ask "what can this agent reach"
+  or "what's the blast radius if this leaks", baseline per-identity
+  behavior for enumeration-style access, and generate/validate real Cedar
+  policy from the findings.
+- **Not yet a good fit for:** an AI analyst that investigates findings for
+  you (Phase 5, not started — see [What this is (and isn't) — yet](#what-this-is-and-isnt--yet));
+  actually enforcing a policy at a live gateway (this generates an Envoy
+  artifact for a human to deploy, it doesn't deploy or wire it in itself).
+
 ## Table of contents
 
+- [Use cases](#use-cases)
 - [Install](#install)
 - [Quick start](#use)
 - [Discovering a whole repo, or a Postman collection](#discovering-a-whole-repo-or-a-postman-collection)
@@ -52,6 +75,8 @@ you can validate and evaluate — not a report you have to take on faith.
 - [Cedar policy: recommendations and drift detection](#cedar-policy-recommendations-and-drift-detection)
 - [Emitting an enforcement artifact (Envoy)](#emitting-an-enforcement-artifact-envoy)
 - [What this is (and isn't) — yet](#what-this-is-and-isnt--yet)
+  - [What's working now (verified)](#whats-working-now-verified)
+  - [What's not working / open issues](#whats-not-working--open-issues)
 
 The parsing, classification, scoring, graph, and policy engine is Rust
 (`core/`); this package is a thin Python CLI/SDK wrapper over it
@@ -332,6 +357,34 @@ for AI agents and the APIs/MCP servers they call). Sensitive-field
 classification is a lightweight keyword heuristic
 (`core/src/classify.rs`), not an NLP model — it's designed to be swapped
 for something like Microsoft Presidio without changing the public API.
+
+### What's working now (verified)
+
+66 Rust unit tests + 7 Rust integration tests (`cargo test -p
+pyapicheck-core`), CI green on every push through Phase 7, and PyPI's live
+release (v0.7.0) matches this repo exactly — no version drift. Phases 0
+through 4, 6, and 7 are done (see [ROADMAP.md](ROADMAP.md) for what each
+phase covers); the Envoy enforcement-artifact schema was verified against a
+real `envoyproxy/envoy:v1.31` Docker container (`envoy --mode validate` plus
+a live 403 check), and MCP tool discovery actually spawns each configured
+server and speaks the real MCP JSON-RPC handshake rather than trusting
+config — see `core/tests/fixtures/fixture_mcp_server.py`.
+
+### What's not working / open issues
+
+- **Phase 5 — AI Security Analyst, the product's stated differentiator, has
+  not been started.** `ROADMAP.md` marks every item unchecked and states an
+  explicit hard gate: findings must be citation-verifiable before Phase 6
+  work proceeds. (Phase 6/7 shipped afterward as advisory/artifact-only
+  work that didn't depend on the analyst.)
+- **The Envoy artifact generation is verified but not enforced** — `emit-envoy`
+  produces a config snippet a human splices into a live deployment
+  themselves; nothing in this repo wires it into a running gateway.
+- **Python-level test coverage is thin** (one test file, `test_remediate.py`)
+  relative to the Rust core's 73 tests — consistent with the Python layer
+  being a genuinely thin CLI/SDK wrapper (`python/pyapicheck/` is two
+  files), but worth knowing before assuming the CLI's argument handling
+  itself is as thoroughly tested as the underlying logic.
 
 ## Development
 
