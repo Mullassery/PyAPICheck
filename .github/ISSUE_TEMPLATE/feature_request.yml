@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose new functionality for pyapicheck.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check `ROADMAP.md` first — it lists what's already planned, what's
+        explicitly deferred (and why), and what's explicitly **not** on
+        the roadmap at all (see "What's explicitly not on this roadmap").
+        If your idea is already covered there, comment on the relevant
+        phase instead of opening a new issue.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What can't you do today that this would enable?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach (optional)
+      description: >
+        If you have a concrete idea for the CLI surface, data model, or
+        implementation, sketch it here. Consistent with this project's
+        conventions: any new finding type needs a named, checkable factor
+        — not a black-box score.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checked-roadmap
+    attributes:
+      label: Confirmation
+      options:
+        - label: I checked ROADMAP.md and this isn't already planned or explicitly out of scope.
+          required: true

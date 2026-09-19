@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Rust workspace (core/ + bindings/), resolved via the root Cargo.lock.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Python packaging metadata (pyproject.toml / maturin build deps).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Actions used in .github/workflows/*.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

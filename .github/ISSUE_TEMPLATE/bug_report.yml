@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in pyapicheck doesn't work as documented.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you run, and what did you expect vs. actually get?
+      placeholder: |
+        Command: pyapicheck discover openapi.yaml
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >
+        A minimal OpenAPI/Postman spec, access log, or Cedar policy that
+        reproduces the issue (redact anything sensitive). This project's
+        whole premise is that findings should be checkable — a bug report
+        should be too.
+      render: yaml
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: pyapicheck version
+      description: "`pyapicheck --version` or the exact commit SHA if built from source"
+      placeholder: "0.7.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install it?
+      options:
+        - "pip install pyapicheck (PyPI)"
+        - "Built from source (maturin develop)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, and (if built from source) Rust toolchain version
+      placeholder: |
+        OS: macOS 15 / Ubuntu 24.04 / ...
+        Python: 3.12
+        rustc: 1.97 (if from source)
+    validations:
+      required: true

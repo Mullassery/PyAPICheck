@@ -360,9 +360,14 @@ for something like Microsoft Presidio without changing the public API.
 
 ### What's working now (verified)
 
-66 Rust unit tests + 7 Rust integration tests (`cargo test -p
-pyapicheck-core`), CI green on every push through Phase 7, and PyPI's live
-release (v0.7.0) matches this repo exactly — no version drift. Phases 0
+67 Rust unit tests + 7 Rust integration tests (`cargo test -p
+pyapicheck-core`; re-run and verified passing as of 2026-09-19), plus 8
+Python tests (`pytest tests/`, requires `maturin develop` first) covering
+`remediate`. CI green on every push through Phase 7 per prior commits
+(not independently re-verified live in this pass — see
+[ROADMAP_HONEST.md](ROADMAP_HONEST.md)), and PyPI's live release (v0.7.0)
+was reported to match this repo exactly as of the commit that made that
+claim — also not independently re-checked here. Phases 0
 through 4, 6, and 7 are done (see [ROADMAP.md](ROADMAP.md) for what each
 phase covers); the Envoy enforcement-artifact schema was verified against a
 real `envoyproxy/envoy:v1.31` Docker container (`envoy --mode validate` plus
@@ -380,11 +385,23 @@ config — see `core/tests/fixtures/fixture_mcp_server.py`.
 - **The Envoy artifact generation is verified but not enforced** — `emit-envoy`
   produces a config snippet a human splices into a live deployment
   themselves; nothing in this repo wires it into a running gateway.
-- **Python-level test coverage is thin** (one test file, `test_remediate.py`)
-  relative to the Rust core's 73 tests — consistent with the Python layer
-  being a genuinely thin CLI/SDK wrapper (`python/pyapicheck/` is two
-  files), but worth knowing before assuming the CLI's argument handling
-  itself is as thoroughly tested as the underlying logic.
+- **Python-level test coverage is thin** (one test file, `test_remediate.py`,
+  covering 1 of the CLI's 12 subcommands) relative to the Rust core's 74
+  tests — consistent with the Python layer being a genuinely thin
+  CLI/SDK wrapper (`python/pyapicheck/` is two files), but worth knowing
+  before assuming the CLI's argument handling itself is as thoroughly
+  tested as the underlying logic. `discover`, `diff`, `report`,
+  `baseline`, `policies *`, and `graph *` have no Python-level test.
+- **Until this pass, CI built the Python wheel but never ran the Python
+  test suite against it** (`maturin-build` stopped at `maturin build`) —
+  fixed; it now installs the wheel and runs `pytest`. There was also no
+  dependency-vulnerability scanning (`cargo audit`) and no Dependabot
+  config; both added this pass but not yet exercised on a real CI run —
+  see [ROADMAP_HONEST.md](ROADMAP_HONEST.md).
+- **`serde_yaml`, the crate this project's YAML parsing/patching depends
+  on throughout `core/`, is deprecated/archived upstream.** No fix
+  applied yet — see [ROADMAP_HONEST.md](ROADMAP_HONEST.md) for why this
+  needs a dedicated follow-up rather than a quick swap.
 
 ## Development
 
@@ -392,6 +409,32 @@ config — see `core/tests/fixtures/fixture_mcp_server.py`.
 cargo test -p pyapicheck-core   # Rust unit + integration tests
 maturin develop                 # rebuild the extension into .venv after Rust changes
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full dev setup, the exact
+commands CI runs, and how to run the Postgres/AGE-backed integration
+tests locally.
+
+## Project status docs
+
+- [ROADMAP.md](ROADMAP.md) — the phase-by-phase engineering plan: what's
+  done, what's deferred, and why.
+- [ROADMAP_HONEST.md](ROADMAP_HONEST.md) — a flat, 4-bucket status list
+  (untested-but-built / not-built / CI gaps / not-fully-functional) plus
+  concrete technical debt with file:line references.
+- [CHANGELOG.md](CHANGELOG.md) — version history reconstructed from git
+  history (no git tags exist for past releases — see the changelog's own
+  note on that).
+- [SECURITY.md](SECURITY.md) — vulnerability reporting; this is a
+  solo-maintainer project with no SLA.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). This project has CI (Rust
+tests/clippy/fmt, a maturin build + Python test run, and a `cargo audit`
+dependency-vulnerability check — see the badge above and
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)) and
+[Dependabot](.github/dependabot.yml) configured for Cargo, pip, and
+GitHub Actions updates.
 
 ## License
 
