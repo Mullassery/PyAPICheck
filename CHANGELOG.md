@@ -12,6 +12,8 @@ that gap.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-22
+
 ### Fixed
 
 - Deduplicated the sample OpenAPI fixture: `examples/sample-openapi.yaml`
