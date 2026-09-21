@@ -148,17 +148,24 @@ restated here for the 4-bucket scan, not new findings.)
    verify exactly how far behind this is (no network access this
    session) or whether upgrading is a breaking change for this project's
    binding surface — flagged for a follow-up to check, not fixed here.
-3. **Duplicated fixture file**: `examples/sample-openapi.yaml` and
-   `core/tests/fixtures/sample-openapi.yaml` are byte-for-byte identical
-   (confirmed via `diff` this session). Minor — a future edit to one and
-   not the other would silently desync the README's example from what
-   the test suite actually exercises. Low priority, safe to leave as-is
-   or symlink in a future cleanup pass.
+3. ~~**Duplicated fixture file**~~ — **fixed 2026-09-21**:
+   `examples/sample-openapi.yaml` is now a symlink to
+   `core/tests/fixtures/sample-openapi.yaml`; one copy on disk instead of
+   two byte-identical files that could silently drift.
 4. **No version-to-commit traceability** (see Bucket 2 above) — if this
    ever needs a security disclosure tied to "which exact commit is PyPI
    version X," there is currently no way to answer that from git alone.
-5. **CI has no OS/Python-version matrix** (see Bucket 3) — single
-   `ubuntu-latest` + Python 3.12 job covers everything.
+5. **CI has no OS matrix; Python-version matrix partially fixed
+   2026-09-21** — the `maturin-build` job now runs pytest against Python
+   3.9/3.12/3.13 (matches `requires-python = ">=3.9"` and the
+   `abi3-py39` wheel target), verified locally by installing the same
+   built wheel into both a 3.12 and a fresh 3.13 venv (8/8 pytest pass
+   both times). OS matrix (macOS/Windows) deliberately **not** added:
+   the `rust` job's Postgres+AGE service container only works on Linux
+   GitHub-hosted runners, and this sandbox can't spin up a real macOS/
+   Windows Actions runner to verify a `maturin-build` OS matrix
+   wouldn't break on a path-separator or toolchain difference — left as
+   an open gap rather than guessed at.
 6. **Thin Python test coverage relative to the Rust core** (Bucket 1) —
    worth a dedicated pass to add CLI-level tests for the other 11
    subcommands, especially `remediate --apply`'s disk-write path (already

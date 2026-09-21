@@ -12,6 +12,28 @@ that gap.
 
 ## [Unreleased]
 
+### Fixed
+
+- Deduplicated the sample OpenAPI fixture: `examples/sample-openapi.yaml`
+  was a byte-for-byte copy of `core/tests/fixtures/sample-openapi.yaml`
+  that could silently drift out of sync. `examples/sample-openapi.yaml`
+  is now a symlink to `../core/tests/fixtures/sample-openapi.yaml`, so
+  there is exactly one copy on disk; verified the README's documented
+  `pyapicheck discover examples/sample-openapi.yaml` command still reads
+  the file correctly through the symlink.
+- CI (`maturin-build` job): added a `python-version` matrix (`3.9`,
+  `3.12`, `3.13`) so the pytest suite runs against the oldest and newest
+  supported interpreters, not just 3.12 — the extension module is built
+  once as an `abi3-py39` wheel, so this should genuinely catch a
+  version-specific regression without needing per-version rebuilds.
+  Verified locally: built the release wheel and ran `pytest tests/ -v`
+  (8/8 pass) against both a fresh Python 3.13 venv and the project's
+  Python 3.12 venv using the same wheel. Did not add an OS matrix — the
+  `rust` job's Postgres/AGE service container is Linux-runner-only, and
+  the `maturin-build` job's cross-platform behavior can't be verified
+  from this sandbox, so that gap is left open (see `ROADMAP_HONEST.md`).
+  Ran `actionlint` on the changed workflow file (clean).
+
 - CI: added a `security` job (`cargo audit` against the RustSec advisory
   database) and fixed a gap where the `maturin-build` job built the
   Python wheel but never ran the Python test suite against it — it now

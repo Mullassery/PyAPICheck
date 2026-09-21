@@ -67,6 +67,14 @@ jobs:
   maturin-build:
     name: maturin build (python extension) + pytest
     runs-on: ubuntu-latest
+    # abi3 (bindings/Cargo.toml: pyo3 "abi3-py39") means one compiled
+    # extension module works across CPython minors — this matrix verifies
+    # that claim by running the same built wheel's pytest suite under the
+    # oldest and newest supported interpreters, not just 3.12.
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
@@ -76,7 +84,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install maturin
         run: pip install "maturin>=1.7,<2.0"
