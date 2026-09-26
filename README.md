@@ -343,6 +343,43 @@ live container genuinely returns `403` for the exact (principal, method,
 path) a policy targets — and does not `403` a different principal or a
 different endpoint for the same principal.
 
+## vs OWASP ZAP
+
+ZAP is the standard OSS API/web security scanner and the closest OSS
+comparison — but it's a fundamentally different approach: ZAP is a
+**dynamic** scanner that sends real HTTP requests to a live running target
+and looks for generic vulnerability classes (injection, XSS, header
+hygiene). `pyapicheck` is a **static** analyzer that reads an OpenAPI spec
+declaratively and reasons about auth/sensitive-data/behavioral risk.
+Tested both against a real, live local target: a real FastAPI app (3 real
+endpoints) running on this machine, with one genuine deliberate flaw — a
+`POST /api/v1/refunds` endpoint accepting a `account_number` field with no
+authentication dependency declared at all, deliberately mirroring the
+exact scenario this README's own "Use" example describes.
+
+| | `pyapicheck discover` (spec) | OWASP ZAP `zap-api-scan.py` (live) |
+|---|---|---|
+| Method | Static: reads the real OpenAPI spec | Dynamic: 116 real HTTP requests/checks against the live server (confirmed via a real `POST /api/v1/refunds` in its own log, `200 OK`) |
+| Runtime | 0.62s | ~90s (full ZAP scan container) |
+| **Caught the real critical flaw** (unauthenticated financial endpoint) | **Yes** — `[CRITICAL] Sensitive data is reachable without authentication`, field `account_number` classified `financial` | **No** — 0 of ZAP's 48 active-scan rules (SQLi, XSS, RCE, SSTI, ...) has a concept of "declared sensitive field + missing auth scheme"; that requires semantic understanding of the schema, not a payload-injection probe |
+| Findings ZAP catches that pyapicheck can't | — | 2 real findings: missing `X-Content-Type-Options` and `Cross-Origin-Resource-Policy` response headers — only observable by actually sending a request and reading real response headers, invisible in a static spec |
+
+**Verified end-to-end, not a stub:** generated real traffic (curl against
+the live demo app) into two real NDJSON access logs, then ran the full
+Phase 4/Cedar pipeline against them — `baseline` correctly flagged a real
+24-sequential-ID enumeration run and a real first-time-observed operation
+(the refund call), and `policies recommend` emitted syntactically valid
+Cedar policy citing that exact real evidence in a `@reason(...)`
+annotation, not a placeholder.
+
+**Bottom line:** these tools solve different problems and are complementary,
+not competitors in the usual sense. ZAP finds generic injection/hygiene
+vulnerabilities by actually attacking a live target; pyapicheck finds
+business-logic authorization gaps (the kind that don't look like a
+"vulnerability" to a generic scanner at all) by reading what the API
+declares about itself, and turns that into real, evidence-cited policy.
+Running both against the same API is more complete than either alone.
+
 ## What this is (and isn't) — yet
 
 `pyapicheck` today parses **declared** API surface from an OpenAPI spec,
