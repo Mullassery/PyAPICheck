@@ -1,5 +1,7 @@
 # pyapicheck
 
+[![Grapify](https://img.shields.io/badge/Grapify-Code%20Scan-purple)](https://grapify.ai)
+
 **Every risk score traces back to a named, checkable reason. Never a black-box number.**
 
 [![PyPI](https://img.shields.io/pypi/v/pyapicheck?color=blue)](https://pypi.org/project/pyapicheck/)
