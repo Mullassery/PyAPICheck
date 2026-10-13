@@ -128,6 +128,16 @@ pyapicheck --help
 
 Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes. CI runs Rust tests/clippy/fmt, builds the Python extension via maturin, runs the Python test suite, and performs a `cargo audit` dependency vulnerability check.
 
+## Related projects
+
+- [PyAPICheck](https://github.com/Mullassery/PyAPICheck) — API security discovery with cited risk scores
+- [PyBeamGuard](https://github.com/Mullassery/PyBeamGuard) — Apache Beam and Dataflow pipeline analysis
+- [PyNetworkIntel](https://github.com/Mullassery/PyNetworkIntel) — network discovery and anomaly detection
+- [OpenAnchor](https://github.com/Mullassery/OpenAnchor) — LLM token-usage intelligence middleware
+- [PyAgentHound](https://github.com/Mullassery/PyAgentHound) — trace, detect, and explain AI agent failures
+- [PyVectorHound](https://github.com/Mullassery/PyVectorHound) — diagnose RAG retrieval failures
+- [Browse all projects](https://github.com/Mullassery?tab=repositories)
+
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
