@@ -130,8 +130,9 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 
 ## Related projects
 
-- [PyAPICheck](https://github.com/Mullassery/PyAPICheck) — API security discovery with cited risk scores
-- [PyBeamGuard](https://github.com/Mullassery/PyBeamGuard) — Apache Beam and Dataflow pipeline analysis
+Part of the Mullassery open-source family:
+
+- [PyBeamGuard](https://github.com/Mullassery/PyBeamGuard) — Apache Beam/Dataflow pipeline analysis
 - [PyNetworkIntel](https://github.com/Mullassery/PyNetworkIntel) — network discovery and anomaly detection
 - [OpenAnchor](https://github.com/Mullassery/OpenAnchor) — LLM token-usage intelligence middleware
 - [PyAgentHound](https://github.com/Mullassery/PyAgentHound) — trace, detect, and explain AI agent failures
