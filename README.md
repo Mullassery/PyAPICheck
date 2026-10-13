@@ -1,487 +1,133 @@
-# pyapicheck
+# PyAPICheck
 
-[![Graphify](https://img.shields.io/badge/Graphify-knowledge%20graph-blue)](https://github.com/Graphify-Labs/graphify)
+Every API risk score traces back to a named, checkable reason—never a black-box number.
 
-**Every risk score traces back to a named, checkable reason. Never a black-box number.**
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-[![PyPI](https://img.shields.io/pypi/v/pyapicheck?color=blue)](https://pypi.org/project/pyapicheck/)
-[![CI](https://github.com/Mullassery/PyAPICheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Mullassery/PyAPICheck/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/pypi/pyversions/pyapicheck)](https://pypi.org/project/pyapicheck/)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+## What it is
 
-## The problem
+PyAPICheck analyzes OpenAPI specifications and cross-references them with real gateway traffic to detect API security issues with full traceability. Unlike generic vulnerability scanners that return opaque severity scores, PyAPICheck produces concrete findings that cite the exact factors causing each risk, enabling teams to verify and act on them with confidence.
 
-OpenAPI specs outgrow the point where anyone can eyeball them for security
-issues. A refunds endpoint ships with no auth override. A `DELETE` route
-inherits no security scheme because the global default got excluded from a
-build config. A field named `account_number` sails past unnoticed. These
-aren't exotic bugs — each one is a single missing YAML line, sitting
-undetected in a spec with hundreds of endpoints until someone finds it the
-hard way.
+Built with a Rust core and Python bindings (via PyO3), PyAPICheck focuses on business-logic authorization gaps—like endpoints that should require authentication but don't, missing security schemes, or inconsistent authorization across operations. It also supports security graph modeling for AI agents/MCP tools, behavioral baselining, and Cedar policy generation.
 
-The tooling that exists doesn't close the gap:
+## Features / Highlights
 
-- **Scanners hand you a severity number with no way to check it.** A human
-  still has to go verify the finding is real before anyone acts on it —
-  which means findings that can't be trusted get ignored, which defeats the
-  point of scanning at all.
-- **Spec-only tools don't know what's actually happening in production.**
-  They can't tell a genuinely dead endpoint from a live one, or a normal
-  integration calling a new resource ID from an enumeration attack.
-- **Nothing is built for the problem that's arriving next**: AI agents
-  calling these same APIs under their own identity, with their own
-  behavioral patterns, and no authorization model designed for them.
+- **Evidence-backed findings**: Every risk factor includes a named severity and description explaining exactly why the finding exists.
+- **Spec discovery**: Scan single OpenAPI specs, entire directories/monorepos, or Postman collections to inventory API surface.
+- **Drift detection**: Compare spec revisions to catch newly added, removed, or changed endpoints before they ship.
+- **Observed vs. declared analysis**: Cross-reference specs with access logs to identify zombie (declared but unused) and shadow (observed but undeclared) endpoints.
+- **MCP/agent security graph**: Build a graph of agents, tools, and resources from live MCP configurations to analyze reachability and blast radius.
+- **Behavioral baselining**: Detect BOLA-shaped access patterns and first-time operations per identity based on real traffic.
+- **Cedar policy generation**: Recommend, validate, and diff Cedar authorization policies with findings backed by concrete evidence.
+- **Automated remediation**: Generate machine-readable remediation plans for OpenAPI specs.
+- **Traceable by design**: All findings maintain full provenance back to the specific spec locations and traffic evidence that produced them.
 
-`pyapicheck` is built around one rule: **every finding names the exact
-factor that produced it.** Not "risk score: 73" — `[CRITICAL] Sensitive
-data is reachable without authentication`, every time. And it doesn't stop
-at the spec: it cross-references real gateway traffic, builds a security
-graph of agents and what they can reach, baselines behavior per identity,
-and turns findings into real [Cedar](https://www.cedarpolicy.com/) policy
-you can validate and evaluate — not a report you have to take on faith.
+## Who it's for / Use cases
 
-## Use cases
+- **Security reviews**: Evaluate OpenAPI specs before shipping, whether for a single service or across an entire monorepo.
+- **CI/CD gating**: Fail builds on high/critical findings or on API security regressions detected via spec diffing.
+- **API lifecycle management**: Identify unused ("zombie") endpoints or undocumented ("shadow") endpoints by reconciling with production traffic.
+- **AI agent governance**: Model MCP servers and agents to understand what they can reach, assess blast radius if compromised, and generate enforceable Cedar policies.
+- **Authorization hardening**: Catch missing authentication, inconsistent security requirements, and overly permissive endpoint exposure.
 
-- **A one-off security review of an OpenAPI spec** before it ships —
-  `pyapicheck discover openapi.yaml`, or the same across an entire repo/
-  monorepo of services (`pyapicheck discover ./services/`).
-- **Gating CI on API security regressions** — `pyapicheck discover
-  openapi.yaml --fail-on-high` exits non-zero on anything HIGH/CRITICAL, or
-  `pyapicheck diff` between two spec revisions to catch a newly-added
-  endpoint that ships with no auth.
-- **Finding endpoints nobody's using, or traffic nobody declared** —
-  `pyapicheck report openapi.yaml access.log` cross-references the spec
-  against real gateway logs for zombie/shadow endpoints.
-- **Governing what AI agents/MCP tools can actually reach** — build a
-  security graph from a live MCP config, ask "what can this agent reach"
-  or "what's the blast radius if this leaks", baseline per-identity
-  behavior for enumeration-style access, and generate/validate real Cedar
-  policy from the findings.
-- **Not yet a good fit for:** an AI analyst that investigates findings for
-  you (Phase 5, not started — see [What this is (and isn't) — yet](#what-this-is-and-isnt--yet));
-  actually enforcing a policy at a live gateway (this generates an Envoy
-  artifact for a human to deploy, it doesn't deploy or wire it in itself).
+## What it is not
 
-## Table of contents
+- **Not a generic web vulnerability scanner**: PyAPICheck focuses on authorization and API surface correctness, not broad classes like XSS, SQLi, or server misconfiguration exploits. Tools like ZAP and pyapicheck are complementary.
+- **Not a live enforcement engine**: It generates Cedar policies and an Envoy configuration artifact, but does not wire or deploy them to gateways. Deployment remains a manual step.
+- **Not production-hardened as an enforcement control plane yet**: The system is advisory/artifact-oriented for many workflows (see Project status).
+- **Not LLM-powered out of the box**: Sensitive field classification uses a lightweight keyword heuristic (designed to be swappable for models like Presidio); the AI Security Analyst (Phase 5) is not implemented at this time.
 
-- [Use cases](#use-cases)
-- [Install](#install)
-- [Quick start](#use)
-- [Discovering a whole repo, or a Postman collection](#discovering-a-whole-repo-or-a-postman-collection)
-- [Drift detection](#drift-detection)
-- [Observed vs. declared: shadow and zombie endpoints](#observed-vs-declared-shadow-and-zombie-endpoints)
-- [Persisting to Postgres](#persisting-to-postgres-optional)
-- [Automated remediation](#automated-remediation)
-- [Security graph: MCP/agent discovery, reachability, blast radius](#security-graph-mcpagent-discovery-reachability-blast-radius)
-- [Behavioral baselining: BOLA-shaped access and first-time operations](#behavioral-baselining-bola-shaped-access-and-first-time-operations)
-- [Cedar policy: recommendations and drift detection](#cedar-policy-recommendations-and-drift-detection)
-- [Emitting an enforcement artifact (Envoy)](#emitting-an-enforcement-artifact-envoy)
-- [What this is (and isn't) — yet](#what-this-is-and-isnt--yet)
-  - [What's working now (verified)](#whats-working-now-verified)
-  - [What's not working / open issues](#whats-not-working--open-issues)
+## Project status
 
-The parsing, classification, scoring, graph, and policy engine is Rust
-(`core/`); this package is a thin Python CLI/SDK wrapper over it
-(`bindings/` + `python/`), built with [PyO3](https://pyo3.rs) and
-[maturin](https://www.maturin.rs).
+- **Core functionality (Phases 0-4, 6-7):** Discovery, diffing, traffic reconciliation, graph modeling, behavioral baselining, Cedar policy operations, and Envoy artifact emission are implemented and covered by tests.
+- **AI Security Analyst (Phase 5):** Not started. This is explicitly deferred pending citation-verifiable findings.
+- **Maturity**: Advisory-first. Artifacts are designed to be validated and reviewed by humans before deployment. Envoy configs should be validated in a staging environment before production use.
 
-## Install
+## Installation
+
+PyAPICheck is distributed as a Python package via PyPI and includes Rust-compiled extensions. Requires Python ≥ 3.9.
 
 ```bash
 pip install pyapicheck
 ```
 
-Or from source (for Rust-side development):
+From source (development):
 
 ```bash
-uv venv .venv --python 3.12
-source .venv/bin/activate
-uv pip install maturin
-maturin develop --release
+maturin develop
 ```
 
-## Use
+## Quick start
+
+Analyze an OpenAPI spec and view risk findings with traceable reasons:
 
 ```bash
-pyapicheck discover examples/sample-openapi.yaml
+pyapicheck discover openapi.yaml
 ```
 
-```
-Commerce API (1.3.0)
-source: examples/sample-openapi.yaml
+Output includes each endpoint, risk level and score, the exact risk factors (each with severity), and any sensitive fields identified (with location: query/path/body/header).
 
-7 endpoints discovered  |  2 high/critical  |  2 unauthenticated  |  4 touch sensitive data
+## Usage
 
-POST    /api/v1/refunds              CRITICAL           score=90
-    - [HIGH] No authentication scheme declared for POST /api/v1/refunds
-    - [HIGH] Endpoint handles fields classified as: financial
-    - [CRITICAL] Sensitive data is reachable without authentication
-    fields: account_number (financial, request)
+- **Discover API surface** (single file or entire repo):
+  ```bash
+  pyapicheck discover openapi.yaml
+  pyapicheck discover ./services/
+  ```
 
-DELETE  /api/v1/users/{id}           HIGH               score=40
-    - [HIGH] No authentication scheme declared for DELETE /api/v1/users/{id}
-...
-```
+- **Gate on regressions in CI**:
+  ```bash
+  pyapicheck discover openapi.yaml --fail-on-high
+  ```
 
-Every finding lists *why* — that's the point. A security engineer should
-never have to trust a score they can't check.
+- **Detect drift between revisions**:
+  ```bash
+  pyapicheck diff old.yaml new.yaml
+  ```
 
-### As a library
+- **Cross-reference with access logs (zombie/shadow detection)**:
+  ```bash
+  pyapicheck report openapi.yaml access.log
+  ```
 
-```python
-import pyapicheck
+- **Build/inspect agent security graph from MCP config**:
+  ```bash
+  pyapicheck graph load-mcp mcp.json
+  pyapicheck graph reachable --agent <agent_id>
+  pyapicheck graph blast-radius --agent <agent_id>
+  ```
 
-inventory = pyapicheck.discover("openapi.yaml")
-for endpoint in inventory["endpoints"]:
-    if endpoint["risk"]["level"] in ("HIGH", "CRITICAL"):
-        print(endpoint["method"], endpoint["path"], endpoint["risk"]["factors"])
-```
+- **Behavioral baselining and Cedar policies**:
+  ```bash
+  pyapicheck baseline openapi.yaml access.log --out baseline.json
+  pyapicheck policies recommend baseline.json --out policy.cedar
+  pyapicheck policies validate policy.cedar
+  pyapicheck policies emit-envoy policy.cedar --out envoy.yaml
+  ```
 
-### Discovering a whole repo, or a Postman collection
+- **Generate remediation plan**:
+  ```bash
+  pyapicheck remediate openapi.yaml --out plan.json
+  ```
 
-`discover` isn't limited to one hand-picked OpenAPI file:
+For all subcommands and flags, run:
 
 ```bash
-pyapicheck discover ./services/          # walks the tree, discovers every openapi/swagger file it finds
-pyapicheck discover collection.json      # Postman Collection v2.1 export — same risk-scored report
+pyapicheck --help
 ```
 
-A directory with multiple services prints one report per spec plus an
-aggregate total; a Postman collection is auto-detected by shape (no flag
-needed) and normalized into the same report format as an OpenAPI spec —
-sensitive fields are classified from the collection's example request
-bodies/query params instead of a schema, since Postman collections don't
-carry one.
+## Documentation
 
-### Drift detection
-
-```bash
-pyapicheck diff old-openapi.yaml new-openapi.yaml
-```
-
-Reports endpoints added, removed, or changed (authentication, deprecation,
-or sensitive-field differences) between two spec snapshots — e.g. two Git
-revisions checked out to disk. This is the first "behavior changed" signal,
-still fully static (no traffic required).
-
-### Observed vs. declared: shadow and zombie endpoints
-
-```bash
-pyapicheck report openapi.yaml access.log
-```
-
-Cross-references the declared spec against a gateway access log (NDJSON,
-NGINX- or Envoy-shaped JSON log lines) and flags **zombie** endpoints
-(declared, zero observed requests) and **shadow** endpoints (observed
-traffic hitting something not in the spec at all) — the first "what's
-actually happening" signal, on top of the purely-declared risk report.
-
-### Persisting to Postgres (optional)
-
-By default `pyapicheck` is entirely file-in, report-out — no database
-required. Add `--db-url` to `discover` or `report` to also persist the
-result (each run creates a new history row rather than overwriting the
-last one):
-
-```bash
-pyapicheck report openapi.yaml access.log --db-url postgres://user:pass@host/db
-```
-
-```python
-import pyapicheck
-inventory_id = pyapicheck.persist("postgres://user:pass@host/db", "openapi.yaml")
-inventory = pyapicheck.load_inventory("postgres://user:pass@host/db", inventory_id)
-```
-
-### In CI
-
-```bash
-pyapicheck discover openapi.yaml --fail-on-high   # exit 2 if anything is HIGH/CRITICAL
-pyapicheck discover openapi.yaml --json           # machine-readable output
-```
-
-### Automated remediation
-
-For the subset of findings that have one safe, mechanical fix, `remediate`
-generates (and can apply) a real patch to the spec — not just a report:
-
-```bash
-pyapicheck remediate openapi.yaml            # dry run: prints a diff, changes nothing
-pyapicheck remediate openapi.yaml --apply    # writes the fix back to the file
-```
-
-```
-2 fixable finding(s):
-
-  [no_auth] POST    /api/v1/refunds              Add `security: [{bearerAuth: []}]` to POST /api/v1/refunds (references the already-declared 'bearerAuth' scheme)
-  [no_auth] DELETE  /api/v1/users/{id}           Add `security: [{bearerAuth: []}]` to DELETE /api/v1/users/{id} (references the already-declared 'bearerAuth' scheme)
-
---- a/openapi.yaml
-+++ b/openapi.yaml
-@@ -108,7 +108,7 @@
-       # BUG: no security override here, and the top-level default is
-       # accidentally excluded from this build's deploy config — this endpoint
-       # ships with no auth in production despite handling financial data.
--      security: []
-+      security: [{bearerAuth: []}]
-       operationId: createRefund
-```
-
-Two findings are fixable today:
-- `no_auth` — adds a `security` requirement, but only referencing a scheme
-  the spec *already declares* in `components.securitySchemes`. It never
-  invents an auth mechanism, only wires up one the API author set up and
-  forgot to apply on that operation.
-- `missing_metadata` — adds a deterministic `operationId` derived from the
-  method + path.
-
-`sensitive_data`, `unauthenticated_sensitive_data`, and
-`deprecated_still_live` stay advisory-only by design — deciding what a
-sensitive field *should* do, or whether a deprecated endpoint can be
-removed, is a business decision this tool has no basis to make for you.
-The patch is a targeted, format-preserving text edit, not a full
-parse-and-re-serialize round trip — comments, key order, and quote style
-elsewhere in the file are untouched, so the diff stays minimal and
-reviewable.
-
-### Security graph: MCP/agent discovery, reachability, blast radius
-
-Beyond individual API specs, `pyapicheck` can build a security graph
-(Postgres + [Apache AGE](https://age.apache.org/)) of `User`/`Agent`/
-`Tool`/`Endpoint`/`Resource`/`Role` nodes and answer graph questions a
-config file can't answer directly:
-
-```bash
-# Discover MCP servers from a config file, live-introspect each one's real
-# tool list over stdio JSON-RPC, and write them into the graph as Tool nodes.
-pyapicheck graph load-mcp claude_desktop_config.json --db-url postgres://user:pass@host/db
-
-# Declare an agent's identity and what it's allowed to call.
-pyapicheck graph add-agent finance-agent --owner alice \
-  --tool refunds-api --scope "process customer refunds" \
-  --db-url postgres://user:pass@host/db
-
-# "What can this agent reach" -- multi-hop traversal, not a config guess.
-pyapicheck graph reachable finance-agent --db-url postgres://user:pass@host/db
-
-# "What's the blast radius if this leaks" -- reverse traversal.
-pyapicheck graph blast-radius accounts_table --db-url postgres://user:pass@host/db
-```
-
-MCP tool discovery is real, not config-trusting: each configured server is
-actually spawned and asked for its tool list over the real MCP JSON-RPC
-handshake (`initialize` → `tools/list`). A server that fails to start or
-doesn't answer is reported `unavailable: <reason>`, never silently treated
-as "zero tools." An agent can only be linked to a tool/API that's already
-been discovered -- `graph add-agent` fails loudly if you reference one
-that isn't in the graph yet, rather than silently no-op-ing.
-
-### Behavioral baselining: BOLA-shaped access and first-time operations
-
-```bash
-pyapicheck baseline openapi.yaml historical-access.log current-access.log --agent finance-agent
-```
-
-Given a caller identity in the traffic (extracted from common log fields
-like `user_id`/`agent_id`/`sub` -- not every gateway log carries one out of
-the box), this computes per-identity baselines (request volume, error rate, distinct
-resources touched, timing regularity) and two concrete, checkable
-findings — not fuzzy anomaly scores:
-
-- **Sequential-ID access** (`BOLA-shaped finding`): an identity hitting a
-  single-numeric-ID endpoint with a run of near-sequential IDs (`1, 2, 3,
-  4, ...`) — the classic enumeration signature.
-- **First-time-observed operation**: an identity calling a declared
-  endpoint it has never called before, compared against the historical
-  log — the exact "a known agent does something it's never done before"
-  trigger from the product vision's worked scenario. This is keyed on the
-  *endpoint template*, not the concrete resource path, so touching a new
-  resource ID on an already-familiar endpoint doesn't create noise.
-
-`--agent NAME` marks an identity as a declared agent (rather than
-guessing from timing); undeclared identities' timing regularity is
-reported as a raw statistic, not classified as "bot" or "human" for you.
-
-### Cedar policy: recommendations and drift detection
-
-```bash
-# Real Cedar syntax validation
-pyapicheck policies validate agent-policy.cedar
-
-# Turn Phase 4 findings into ready-to-use Cedar policy text
-pyapicheck policies recommend openapi.yaml historical.log current.log --agent finance-agent
-
-# Find findings an EXISTING policy would currently allow, with fixes
-pyapicheck policies diff agent-policy.cedar openapi.yaml historical.log current.log --agent finance-agent
-```
-
-Uses [Cedar](https://www.cedarpolicy.com/) (Amazon's policy language) for
-real parsing and evaluation — not a bespoke rules format. Cedar only has
-two effects, `permit`/`forbid`, no native "require approval" — every
-recommendation here is a `forbid`, tagged `@effect_hint("deny")` (a strong
-signal, like BOLA enumeration) or `@effect_hint("require_approval")` (a
-first-time operation that merits review, not an automatic verdict).
-
-`policies diff` doesn't guess whether your existing policy covers a
-finding — it actually evaluates the finding's exact (principal, action,
-resource) through Cedar's real authorizer against your policy file. A
-finding Cedar would currently `Allow` (e.g. a broad `permit` for an agent
-with no carve-out) is a genuine gap, reported with the exact `forbid` text
-that closes it.
-
-### Emitting an enforcement artifact (Envoy)
-
-```bash
-pyapicheck policies emit-envoy agent-policy.cedar --out rbac-filter.yaml
-```
-
-Translates a Cedar policy's `forbid` rules into an Envoy
-`envoy.filters.http.rbac` HTTP filter config snippet — a config artifact
-for a human to splice into a real Envoy deployment's `http_filters` chain,
-not something this command deploys or wires into a live request path
-itself. The generated schema was verified against a real Envoy instance
-(`envoyproxy/envoy`, Docker): `envoy --mode validate` accepts it, and a
-live container genuinely returns `403` for the exact (principal, method,
-path) a policy targets — and does not `403` a different principal or a
-different endpoint for the same principal.
-
-## vs OWASP ZAP
-
-ZAP is the standard OSS API/web security scanner and the closest OSS
-comparison — but it's a fundamentally different approach: ZAP is a
-**dynamic** scanner that sends real HTTP requests to a live running target
-and looks for generic vulnerability classes (injection, XSS, header
-hygiene). `pyapicheck` is a **static** analyzer that reads an OpenAPI spec
-declaratively and reasons about auth/sensitive-data/behavioral risk.
-Tested both against a real, live local target: a real FastAPI app (3 real
-endpoints) running on this machine, with one genuine deliberate flaw — a
-`POST /api/v1/refunds` endpoint accepting a `account_number` field with no
-authentication dependency declared at all, deliberately mirroring the
-exact scenario this README's own "Use" example describes.
-
-| | `pyapicheck discover` (spec) | OWASP ZAP `zap-api-scan.py` (live) |
-|---|---|---|
-| Method | Static: reads the real OpenAPI spec | Dynamic: 116 real HTTP requests/checks against the live server (confirmed via a real `POST /api/v1/refunds` in its own log, `200 OK`) |
-| Runtime | 0.62s | ~90s (full ZAP scan container) |
-| **Caught the real critical flaw** (unauthenticated financial endpoint) | **Yes** — `[CRITICAL] Sensitive data is reachable without authentication`, field `account_number` classified `financial` | **No** — 0 of ZAP's 48 active-scan rules (SQLi, XSS, RCE, SSTI, ...) has a concept of "declared sensitive field + missing auth scheme"; that requires semantic understanding of the schema, not a payload-injection probe |
-| Findings ZAP catches that pyapicheck can't | — | 2 real findings: missing `X-Content-Type-Options` and `Cross-Origin-Resource-Policy` response headers — only observable by actually sending a request and reading real response headers, invisible in a static spec |
-
-**Verified end-to-end, not a stub:** generated real traffic (curl against
-the live demo app) into two real NDJSON access logs, then ran the full
-Phase 4/Cedar pipeline against them — `baseline` correctly flagged a real
-24-sequential-ID enumeration run and a real first-time-observed operation
-(the refund call), and `policies recommend` emitted syntactically valid
-Cedar policy citing that exact real evidence in a `@reason(...)`
-annotation, not a placeholder.
-
-**Bottom line:** these tools solve different problems and are complementary,
-not competitors in the usual sense. ZAP finds generic injection/hygiene
-vulnerabilities by actually attacking a live target; pyapicheck finds
-business-logic authorization gaps (the kind that don't look like a
-"vulnerability" to a generic scanner at all) by reading what the API
-declares about itself, and turns that into real, evidence-cited policy.
-Running both against the same API is more complete than either alone.
-
-## What this is (and isn't) — yet
-
-`pyapicheck` today parses **declared** API surface from an OpenAPI spec,
-cross-references it against real traffic, builds a security graph of
-agents/tools/resources, baselines per-identity behavior, generates/
-validates Cedar policy, and can emit an Envoy enforcement artifact from
-that policy. It does not yet wire that artifact into a live gateway
-itself, or have an AI analyst layer — those are the next layers. See
-[ROADMAP.md](ROADMAP.md) for the concrete, phase-by-phase plan from here
-to the full product vision (an authorization and behavior control plane
-for AI agents and the APIs/MCP servers they call). Sensitive-field
-classification is a lightweight keyword heuristic
-(`core/src/classify.rs`), not an NLP model — it's designed to be swapped
-for something like Microsoft Presidio without changing the public API.
-
-### What's working now (verified)
-
-67 Rust unit tests + 7 Rust integration tests (`cargo test -p
-pyapicheck-core`; re-run and verified passing as of 2026-09-19), plus 8
-Python tests (`pytest tests/`, requires `maturin develop` first) covering
-`remediate`. CI green on every push through Phase 7 per prior commits
-(not independently re-verified live in this pass — see
-[ROADMAP_HONEST.md](ROADMAP_HONEST.md)), and PyPI's live release (v0.7.0)
-was reported to match this repo exactly as of the commit that made that
-claim — also not independently re-checked here. Phases 0
-through 4, 6, and 7 are done (see [ROADMAP.md](ROADMAP.md) for what each
-phase covers); the Envoy enforcement-artifact schema was verified against a
-real `envoyproxy/envoy:v1.31` Docker container (`envoy --mode validate` plus
-a live 403 check), and MCP tool discovery actually spawns each configured
-server and speaks the real MCP JSON-RPC handshake rather than trusting
-config — see `core/tests/fixtures/fixture_mcp_server.py`.
-
-### What's not working / open issues
-
-- **Phase 5 — AI Security Analyst, the product's stated differentiator, has
-  not been started.** `ROADMAP.md` marks every item unchecked and states an
-  explicit hard gate: findings must be citation-verifiable before Phase 6
-  work proceeds. (Phase 6/7 shipped afterward as advisory/artifact-only
-  work that didn't depend on the analyst.)
-- **The Envoy artifact generation is verified but not enforced** — `emit-envoy`
-  produces a config snippet a human splices into a live deployment
-  themselves; nothing in this repo wires it into a running gateway.
-- **Python-level test coverage is thin** (one test file, `test_remediate.py`,
-  covering 1 of the CLI's 12 subcommands) relative to the Rust core's 74
-  tests — consistent with the Python layer being a genuinely thin
-  CLI/SDK wrapper (`python/pyapicheck/` is two files), but worth knowing
-  before assuming the CLI's argument handling itself is as thoroughly
-  tested as the underlying logic. `discover`, `diff`, `report`,
-  `baseline`, `policies *`, and `graph *` have no Python-level test.
-- **Until this pass, CI built the Python wheel but never ran the Python
-  test suite against it** (`maturin-build` stopped at `maturin build`) —
-  fixed; it now installs the wheel and runs `pytest`. There was also no
-  dependency-vulnerability scanning (`cargo audit`) and no Dependabot
-  config; both added this pass but not yet exercised on a real CI run —
-  see [ROADMAP_HONEST.md](ROADMAP_HONEST.md).
-- **`serde_yaml`, the crate this project's YAML parsing/patching depends
-  on throughout `core/`, is deprecated/archived upstream.** No fix
-  applied yet — see [ROADMAP_HONEST.md](ROADMAP_HONEST.md) for why this
-  needs a dedicated follow-up rather than a quick swap.
-
-## Development
-
-```bash
-cargo test -p pyapicheck-core   # Rust unit + integration tests
-maturin develop                 # rebuild the extension into .venv after Rust changes
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full dev setup, the exact
-commands CI runs, and how to run the Postgres/AGE-backed integration
-tests locally.
-
-## Project status docs
-
-- [ROADMAP.md](ROADMAP.md) — the phase-by-phase engineering plan: what's
-  done, what's deferred, and why.
-- [ROADMAP_HONEST.md](ROADMAP_HONEST.md) — a flat, 4-bucket status list
-  (untested-but-built / not-built / CI gaps / not-fully-functional) plus
-  concrete technical debt with file:line references.
-- [CHANGELOG.md](CHANGELOG.md) — version history reconstructed from git
-  history (no git tags exist for past releases — see the changelog's own
-  note on that).
-- [SECURITY.md](SECURITY.md) — vulnerability reporting; this is a
-  solo-maintainer project with no SLA.
+- [CHANGELOG.md](CHANGELOG.md) — Version history and release notes.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Development setup, testing, and contribution guidelines.
+- [ROADMAP.md](ROADMAP.md) — Phase-by-phase plan and what's done vs. deferred.
+- [ROADMAP_HONEST.md](ROADMAP_HONEST.md) — Honest assessment of maturity, gaps, and technical debt.
+- [SECURITY.md](SECURITY.md) — Vulnerability reporting.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). This project has CI (Rust
-tests/clippy/fmt, a maturin build + Python test run, and a `cargo audit`
-dependency-vulnerability check — see the badge above and
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml)) and
-[Dependabot](.github/dependabot.yml) configured for Cargo, pip, and
-GitHub Actions updates.
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes. CI runs Rust tests/clippy/fmt, builds the Python extension via maturin, runs the Python test suite, and performs a `cargo audit` dependency vulnerability check.
 
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
-
----
-
-If `pyapicheck` catches something in your API surface a scanner would've
-handed you as an unexplained number, a star helps other people find it too.
-Issues and PRs are welcome — see [ROADMAP.md](ROADMAP.md) for what's next
-and what's deliberately not built yet.
