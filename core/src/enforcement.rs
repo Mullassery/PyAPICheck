@@ -202,7 +202,8 @@ forbid(principal == User::"attacker", action == Action::"CallEndpoint", resource
         )
         .unwrap();
         let yaml = emit_envoy_rbac(&policy_set).unwrap();
-        let parsed: serde_yaml::Value = serde_yaml::from_str(&yaml).expect("must be valid YAML");
+        let parsed: serde_norway::Value =
+            serde_norway::from_str(&yaml).expect("must be valid YAML");
         assert_eq!(
             parsed.get("name").and_then(|v| v.as_str()),
             Some("envoy.filters.http.rbac")

@@ -171,7 +171,7 @@ pub fn discover_from_str_with_classifier(
     let root: serde_json::Value = if spec_text.trim_start().starts_with('{') {
         serde_json::from_str(spec_text).map_err(|e| format!("invalid JSON: {e}"))?
     } else {
-        serde_yaml::from_str(spec_text).map_err(|e| format!("invalid YAML: {e}"))?
+        serde_norway::from_str(spec_text).map_err(|e| format!("invalid YAML: {e}"))?
     };
 
     let (title, api_version, drafts) = if postman::is_postman_collection(&root) {
@@ -246,7 +246,7 @@ pub fn remediate_from_str(spec_text: &str) -> Result<RemediationPlan, String> {
     let root: serde_json::Value = if is_json {
         serde_json::from_str(spec_text).map_err(|e| format!("invalid JSON: {e}"))?
     } else {
-        serde_yaml::from_str(spec_text).map_err(|e| format!("invalid YAML: {e}"))?
+        serde_norway::from_str(spec_text).map_err(|e| format!("invalid YAML: {e}"))?
     };
 
     let inventory = discover_from_str(spec_text, "")?;

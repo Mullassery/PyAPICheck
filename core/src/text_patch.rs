@@ -4,7 +4,7 @@
 //! the right tool for *analysis* (e.g. the end-to-end test in
 //! `remediate.rs` re-discovers the patched `Value` to confirm a fix
 //! actually changes `authenticated`). But writing that `Value` back out via
-//! `serde_json::to_string_pretty`/`serde_yaml::to_string` re-serializes the
+//! `serde_json::to_string_pretty`/`serde_norway::to_string` re-serializes the
 //! *entire* document: keys get alphabetized, YAML comments are silently
 //! dropped (comments aren't part of the JSON/YAML data model at all, so a
 //! generic `Value` never even sees them), and formatting choices (quote

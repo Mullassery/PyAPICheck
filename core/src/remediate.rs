@@ -352,7 +352,7 @@ mod tests {
     #[test]
     fn end_to_end_against_sample_fixture_fixes_both_unauthenticated_endpoints() {
         let spec_text = include_str!("../tests/fixtures/sample-openapi.yaml");
-        let mut root: Value = serde_yaml::from_str(spec_text).unwrap();
+        let mut root: Value = serde_norway::from_str(spec_text).unwrap();
         let inventory = discover_from_str(spec_text, "fixture").unwrap();
 
         let fixes = compute_fixes(&root, &inventory.endpoints);

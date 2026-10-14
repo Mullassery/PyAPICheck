@@ -1,0 +1,17 @@
+# cargo-audit configuration.
+#
+# Ignored advisories (each with the reason it cannot be fixed by upgrading).
+[advisories]
+ignore = [
+    # `rsa` is pulled into Cargo.lock only as an optional dependency of
+    # `sqlx-mysql`, which is itself never activated: the `sqlx` `migrate`
+    # feature weakly references `sqlx-mysql?/migrate`, which causes Cargo to
+    # record `sqlx-mysql` (and its unconditional `rsa` dependency) in the
+    # lockfile even though neither crate is compiled into any target.
+    # `cargo tree -i rsa` reports no dependents, confirming it is unreachable
+    # dead weight in the lock. No upstream fix exists for RUSTSEC-2023-0071;
+    # upgrading to sqlx 0.9 (where `rsa` becomes optional) would require
+    # rewriting every dynamic `sqlx::query` call for the new `SqlSafeStr`
+    # bound, which is out of scope.
+    "RUSTSEC-2023-0071",
+]
