@@ -18,6 +18,10 @@ classifiers = [
 [project.scripts]
 pyapicheck = "pyapicheck.cli:main"
 
+[project.optional-dependencies]
+# Embedded architecture/knowledge-graph engine behind tools/codeatlas.
+architecture = ["codeatlas-rs>=0.3.0"]
+
 [tool.maturin]
 manifest-path = "bindings/Cargo.toml"
 module-name = "pyapicheck._core"
