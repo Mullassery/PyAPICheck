@@ -46,4 +46,8 @@ Invest as an evidence-first authorization auditor; avoid DAST scope.
 
 ## Implementation status
 
-No code changes in this pass.
+Added SARIF 2.1.0 output for `discover` (`--sarif`), so findings can be
+uploaded to GitHub code scanning without a custom exporter. One result per
+named risk factor; stable `pyapicheck/<factor-id>` rules. `tests/test_sarif.py`
+covers shape, rule IDs, severity mapping, and empty inventories (2 passed).
+PyAPICheck bumped to `0.8.0`.

@@ -139,6 +139,16 @@ For all subcommands and flags, run:
 pyapicheck --help
 ```
 
+## SARIF / GitHub code scanning
+
+```bash
+pyapicheck discover openapi.yaml --sarif > pyapicheck.sarif
+```
+
+Upload the result with `github/codeql-action/upload-sarif`. One SARIF result is
+emitted per named risk factor (no opaque endpoint-level result), with the
+source spec as the artifact location.
+
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md) — Version history and release notes.
