@@ -20,7 +20,7 @@ pyapicheck = "pyapicheck.cli:main"
 
 [project.optional-dependencies]
 # Embedded architecture/knowledge-graph engine behind tools/codeatlas.
-architecture = ["codeatlas-rs>=0.1.0"]
+architecture = ["codeatlas-rs>=0.3.0"]
 
 [tool.maturin]
 manifest-path = "bindings/Cargo.toml"
