@@ -7,6 +7,8 @@ graph LR
     tools["tools"]
     PyAPICheck["PyAPICheck"]
     bindings -- "calls" --> core
+    bindings -- "calls" --> tools
+    core -- "calls" --> tools
     python -- "calls" --> core
     click bindings href "./bindings.md" "Details"
     click core href "./core.md" "Details"
@@ -40,12 +42,18 @@ Owns 0 symbols across 0 file(s).
 
 ### tests
 
-Owns 9 symbols across 1 file(s).
+Owns 14 symbols across 2 file(s).
 
 **Related Classes/Methods:** _None_
 
 **Source Files:**
 
+- `tests/test_codeatlas_adapter.py`
+  - `tests.test_codeatlas_adapter._run`
+  - `tests.test_codeatlas_adapter.test_check_reports_the_embedded_engine_available`
+  - `tests.test_codeatlas_adapter.test_diagnose_summarises_the_architecture_map`
+  - `tests.test_codeatlas_adapter.test_explain_reports_an_unknown_node_as_an_error`
+  - `tests.test_codeatlas_adapter.test_god_nodes_are_ranked_by_degree`
 - `tests/test_remediate.py`
   - `tests.test_remediate.TestRemediateCli`
   - `tests.test_remediate.TestRemediateCli.test_apply_writes_the_patched_file`
