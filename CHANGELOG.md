@@ -12,6 +12,16 @@ that gap.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-19
+
+### Added
+- `pyapicheck discover <spec> --sarif` emits SARIF 2.1.0 for GitHub code
+  scanning. One result per named risk factor, with the endpoint, risk score,
+  factor weight, and source spec as the artifact location. Rules are stable
+  `pyapicheck/<factor-id>` identifiers.
+- `tests/test_sarif.py` covers the SARIF shape, rule IDs, severity mapping,
+  and empty inventories.
+
 ## [0.7.2] - 2026-10-18
 
 ### Fixed

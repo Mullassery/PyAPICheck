@@ -21,6 +21,7 @@ from . import policies_recommend as _policies_recommend
 from . import policies_validate as _policies_validate
 from . import remediate as _remediate_spec
 from . import report as _report
+from . import sarif as _sarif
 
 _LEVEL_COLORS = {
     "CRITICAL": "\033[1;97;41m",
@@ -88,7 +89,9 @@ def _cmd_discover(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    if args.json:
+    if args.sarif:
+        print(json.dumps(_sarif.build_sarif(inventories), indent=2))
+    elif args.json:
         print(json.dumps(inventories if is_directory else inventories[0], indent=2))
     else:
         if is_directory:
@@ -458,8 +461,14 @@ def main(argv=None) -> int:
             "export, or a directory to search recursively for either"
         ),
     )
-    discover_parser.add_argument(
+    discover_format = discover_parser.add_mutually_exclusive_group()
+    discover_format.add_argument(
         "--json", action="store_true", help="Output raw JSON instead of a report"
+    )
+    discover_format.add_argument(
+        "--sarif",
+        action="store_true",
+        help="Output SARIF 2.1.0 for GitHub code scanning instead of a report",
     )
     discover_parser.add_argument(
         "--fail-on-high",
