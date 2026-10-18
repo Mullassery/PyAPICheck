@@ -1445,7 +1445,7 @@ dependencies = [
 
 [[package]]
 name = "pyapicheck-bindings"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "pyapicheck-core",
  "pyo3",
@@ -1455,7 +1455,7 @@ dependencies = [
 
 [[package]]
 name = "pyapicheck-core"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "cedar-policy",
  "chrono",

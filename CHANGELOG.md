@@ -12,6 +12,19 @@ that gap.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-10-18
+
+### Fixed
+
+- **README usage examples now match the real CLI** (RECHECK-063). The
+  `graph reachable` / `graph blast-radius` examples passed `--agent <id>`
+  when the commands actually take a positional agent/resource name and a
+  required `--db-url`; `baseline` / `policies recommend` were documented with
+  a nonexistent `--out` flag and a single log file when they take a
+  historical *and* a current log and emit to stdout; and `remediate` was
+  shown with `--out` instead of `--json`. Copy-pasted commands no longer
+  fail with argparse errors.
+
 ## [0.7.1] - 2026-09-22
 
 ### Fixed

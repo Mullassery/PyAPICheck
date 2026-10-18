@@ -113,24 +113,24 @@ Output includes each endpoint, risk level and score, the exact risk factors (eac
   pyapicheck report openapi.yaml access.log
   ```
 
-- **Build/inspect agent security graph from MCP config**:
+- **Build/inspect agent security graph from MCP config** (requires a Postgres+AGE `--db-url`):
   ```bash
-  pyapicheck graph load-mcp mcp.json
-  pyapicheck graph reachable --agent <agent_id>
-  pyapicheck graph blast-radius --agent <agent_id>
+  pyapicheck graph load-mcp mcp.json --db-url postgresql://user:pass@host/db
+  pyapicheck graph reachable <agent_name> --db-url postgresql://user:pass@host/db
+  pyapicheck graph blast-radius <resource_name> --db-url postgresql://user:pass@host/db
   ```
 
-- **Behavioral baselining and Cedar policies**:
+- **Behavioral baselining and Cedar policies** (baseline and recommend each take a historical *and* a current access log):
   ```bash
-  pyapicheck baseline openapi.yaml access.log --out baseline.json
-  pyapicheck policies recommend baseline.json --out policy.cedar
+  pyapicheck baseline openapi.yaml historical.log current.log --json > baseline.json
+  pyapicheck policies recommend openapi.yaml historical.log current.log > policy.cedar
   pyapicheck policies validate policy.cedar
   pyapicheck policies emit-envoy policy.cedar --out envoy.yaml
   ```
 
 - **Generate remediation plan**:
   ```bash
-  pyapicheck remediate openapi.yaml --out plan.json
+  pyapicheck remediate openapi.yaml --json > plan.json
   ```
 
 For all subcommands and flags, run:
