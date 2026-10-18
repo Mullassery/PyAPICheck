@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "outputs": {
+    "md": [
+      "bindings.1.md",
+      "core.2.md",
+      "overview.md",
+      "python.3.md",
+      "tests.2.3.md",
+      "tools.5.md"
+    ],
+    "html": [
+      "bindings.1.html",
+      "core.2.html",
+      "overview.html",
+      "python.3.html",
+      "tests.2.3.html",
+      "tools.5.html"
+    ]
+  }
+}
