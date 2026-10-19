@@ -16,6 +16,8 @@ import os
 from importlib import metadata as _metadata
 
 from . import _core
+from .active import ActiveTestResult, SchemathesisUnavailable, run_active_tests
+from .lint import LinterUnavailable, LintResult, run_lint
 
 
 def discover(spec_path: str) -> dict:
@@ -217,5 +219,11 @@ __all__ = [
     "graph_reachable",
     "graph_blast_radius",
     "remediate",
+    "run_active_tests",
+    "ActiveTestResult",
+    "SchemathesisUnavailable",
+    "run_lint",
+    "LintResult",
+    "LinterUnavailable",
     "__version__",
 ]

@@ -112,6 +112,71 @@ def _cmd_discover(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_lint(args: argparse.Namespace) -> int:
+    from .lint import LinterUnavailable, run_lint
+
+    try:
+        result = run_lint(args.spec, tool=args.tool)
+    except (LinterUnavailable, ValueError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        print(f"{result.tool}: {'PASS' if result.passed else 'FINDINGS'}")
+        for finding in result.findings:
+            print(f"  - {finding}")
+    if args.fail_on_findings and not result.passed:
+        return 1
+    return 0
+
+
+def _cmd_active(args: argparse.Namespace) -> int:
+    from .active import SchemathesisUnavailable, run_active_tests
+
+    headers = {}
+    for item in args.header:
+        name, _, value = item.partition(":")
+        if name and value:
+            headers[name.strip()] = value.strip()
+    try:
+        result = run_active_tests(
+            args.spec,
+            args.url,
+            checks=args.checks.split(",") if args.checks else None,
+            phases=args.phases.split(",") if args.phases else None,
+            max_time=args.max_time,
+            max_failures=args.max_failures,
+            workers=args.workers,
+            headers=headers,
+            auth=args.auth,
+        )
+    except SchemathesisUnavailable as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps({"summary": result.summary(), "failures": result.failures, "errors": result.errors}, indent=2))
+    else:
+        summary = result.summary()
+        print(f"Schemathesis: {'PASS' if result.passed else 'FAIL'}")
+        print(f"operations: {summary['operations']}")
+        print(f"test cases: {summary['test_cases']}")
+        print(f"failures: {summary['failures']} errors: {summary['errors']}")
+        print(f"stop reason: {summary['stop_reason']}")
+        for failure in result.failures:
+            print(f"  FAIL {failure.get('title') or failure.get('check') or failure}")
+        for error in result.errors:
+            print(f"  ERROR {error.get('title') or error}")
+
+    if args.fail_on_failure and not result.passed:
+        return 1
+    return 0
+
+
 def _cmd_diff(args: argparse.Namespace) -> int:
     try:
         report = _diff_specs(args.old_spec, args.new_spec)
@@ -450,6 +515,16 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="pyapicheck")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    lint_parser = sub.add_parser(
+        "lint", help="Lint an OpenAPI spec with vacuum or Spectral"
+    )
+    lint_parser.add_argument("spec")
+    lint_parser.add_argument("--tool", choices=["auto", "vacuum", "spectral"], default="auto")
+    lint_parser.add_argument("--json", action="store_true", help="Output structured findings")
+    lint_parser.add_argument("--fail-on-findings", action="store_true")
+    lint_parser.set_defaults(func=_cmd_lint)
+
+
     discover_parser = sub.add_parser(
         "discover",
         help="Discover a risk-scored API inventory from a spec file or a directory of specs",
@@ -481,6 +556,37 @@ def main(argv=None) -> int:
         help="Postgres URL to persist this inventory to, in addition to printing it (single spec file only)",
     )
     discover_parser.set_defaults(func=_cmd_discover)
+
+    active_parser = sub.add_parser(
+        "active",
+        help="Run Schemathesis property-based/fuzzing tests from an OpenAPI spec",
+    )
+    active_parser.add_argument("spec", help="Path to an OpenAPI 3.x file")
+    active_parser.add_argument("--url", required=True, help="Base URL of the running API")
+    active_parser.add_argument(
+        "--checks",
+        default=None,
+        help="Comma-separated Schemathesis checks (default: Schemathesis default)",
+    )
+    active_parser.add_argument(
+        "--phases",
+        default=None,
+        help="Comma-separated phases: examples,coverage,fuzzing,stateful",
+    )
+    active_parser.add_argument("--max-time", type=int, default=None)
+    active_parser.add_argument("--max-failures", type=int, default=None)
+    active_parser.add_argument("--workers", type=int, default=None)
+    active_parser.add_argument(
+        "--header", action="append", default=[], metavar="NAME:VALUE"
+    )
+    active_parser.add_argument("--auth", default=None, metavar="USER:PASS")
+    active_parser.add_argument("--json", action="store_true", help="Output raw report summary")
+    active_parser.add_argument(
+        "--fail-on-failure",
+        action="store_true",
+        help="Exit 1 when Schemathesis finds failures or errors",
+    )
+    active_parser.set_defaults(func=_cmd_active)
 
     remediate_parser = sub.add_parser(
         "remediate",

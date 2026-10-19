@@ -4,6 +4,7 @@ This file records what was shipped, what is blocked/failed, and what is rejected
 
 ## Shipped
 - SARIF 2.1.0 output for code scanning (0.8.0).
+- Schemathesis active testing and vacuum/Spectral OpenAPI lint adapters (`pyapicheck active` / `lint`).
 
 ## Blocked / failed
 - Live traffic connectors and Presidio PII; Linux/Windows wheels.

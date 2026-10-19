@@ -24,3 +24,6 @@ module-name = "pyapicheck._core"
 python-source = "python"
 features = ["pyo3/extension-module"]
 include = ["LICENSE"]
+
+[project.optional-dependencies]
+active = ["schemathesis>=4.0"]

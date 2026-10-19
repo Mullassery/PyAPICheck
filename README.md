@@ -90,6 +90,36 @@ pyapicheck discover openapi.yaml
 
 Output includes each endpoint, risk level and score, the exact risk factors (each with severity), and any sensitive fields identified (with location: query/path/body/header).
 
+## OpenAPI linting (vacuum / Spectral)
+
+Lint the contract itself with vacuum (MIT) or Spectral (Apache-2.0):
+
+```bash
+pyapicheck lint openapi.yaml --tool auto --fail-on-findings
+pyapicheck lint openapi.yaml --json
+```
+
+The adapter uses whichever binary is installed, parses JSON findings when the
+tool provides them, and reports missing linters explicitly.
+
+## Active testing (Schemathesis)
+
+Static discovery tells you which operations look risky. Active testing proves
+it by generating property-based and stateful tests from the same OpenAPI
+schema:
+
+```bash
+pip install "pyapicheck[active]"
+
+pyapicheck active openapi.yaml --url http://127.0.0.1:8000 \
+  --checks all --phases coverage,fuzzing --max-time 60 --fail-on-failure
+```
+
+The adapter invokes the MIT-licensed Schemathesis CLI, parses its JSON report
+and prints failures/errors. `--json` returns the structured summary. Network
+errors, missing binaries, and non-zero exits are surfaced honestly; a failed
+run is never reported as a pass.
+
 ## Usage
 
 - **Discover API surface** (single file or entire repo):
