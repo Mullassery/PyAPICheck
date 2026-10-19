@@ -95,6 +95,11 @@ Output includes each endpoint, risk level and score, the exact risk factors (eac
 Lint the contract itself with vacuum (MIT) or Spectral (Apache-2.0):
 
 ```bash
+brew install vacuum                     # Go binary (quobix/vacuum)
+npm install -g @stoplight/spectral-cli  # Node CLI
+```
+
+```bash
 pyapicheck lint openapi.yaml --tool auto --fail-on-findings
 pyapicheck lint openapi.yaml --json
 ```
