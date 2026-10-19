@@ -157,6 +157,11 @@ source spec as the artifact location.
 - [ROADMAP_HONEST.md](ROADMAP_HONEST.md) — Honest assessment of maturity, gaps, and technical debt.
 - [SECURITY.md](SECURITY.md) — Vulnerability reporting.
 
+## Queue status
+
+Shipped, blocked/failed, and rejected work for this repository is documented in
+[`QUEUE_STATUS.md`](QUEUE_STATUS.md).
+
 ## Contributing
 
 Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes. CI runs Rust tests/clippy/fmt, builds the Python extension via maturin, runs the Python test suite, and performs a `cargo audit` dependency vulnerability check.
