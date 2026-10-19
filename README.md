@@ -167,11 +167,6 @@ source spec as the artifact location.
 
 Full shipped/blocked/rejected detail: [`QUEUE_STATUS.md`](QUEUE_STATUS.md).
 
-## Queue status
-
-Shipped, blocked/failed, and rejected work for this repository is documented in
-[`QUEUE_STATUS.md`](QUEUE_STATUS.md).
-
 ## Contributing
 
 Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes. CI runs Rust tests/clippy/fmt, builds the Python extension via maturin, runs the Python test suite, and performs a `cargo audit` dependency vulnerability check.
