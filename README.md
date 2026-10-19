@@ -157,6 +157,16 @@ source spec as the artifact location.
 - [ROADMAP_HONEST.md](ROADMAP_HONEST.md) — Honest assessment of maturity, gaps, and technical debt.
 - [SECURITY.md](SECURITY.md) — Vulnerability reporting.
 
+## Known issues and deferred work
+
+**Blocked / failed:**
+- Live traffic connectors and Presidio PII; Linux/Windows wheels.
+
+**Rejected / deferred:**
+- DAST parity or live enforcement.
+
+Full shipped/blocked/rejected detail: [`QUEUE_STATUS.md`](QUEUE_STATUS.md).
+
 ## Queue status
 
 Shipped, blocked/failed, and rejected work for this repository is documented in
