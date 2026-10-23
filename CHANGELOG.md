@@ -14,6 +14,10 @@ that gap.
 
 ## [0.8.1] - 2026-10-23
 
+### Security
+- Updated `rustls` to 0.23.46, `rustls-webpki` to 0.103.16, and
+  `webpki-roots` to 1.0.10, clearing the current `cargo audit` advisories.
+
 ### Fixed
 - Fixed `pyapicheck active` for Schemathesis 4.x by invoking its console entry point.
 
