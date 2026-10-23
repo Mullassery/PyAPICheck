@@ -12,6 +12,11 @@ that gap.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-23
+
+### Fixed
+- Fixed `pyapicheck active` for Schemathesis 4.x by invoking its console entry point.
+
 ## [0.8.0] - 2026-10-19
 
 ### Added
