@@ -68,3 +68,20 @@ def test_missing_schemathesis_is_actionable(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "schemathesis", None)
     with pytest.raises(SchemathesisUnavailable, match="pyapicheck\\[active\\]"):
         run_active_tests(str(spec), "http://127.0.0.1:9")
+
+
+def test_resolves_entry_point_when_script_not_on_path(monkeypatch):
+    """Regression: `python -m schemathesis` does not exist in Schemathesis 4.x.
+
+    When the console script is absent from PATH (venv used without activation)
+    but the package is importable, fall back to the console-script entry point.
+    """
+    pytest.importorskip("schemathesis")
+    import sys
+
+    from pyapicheck import active
+
+    monkeypatch.setattr("shutil.which", lambda _: None)
+    command = active._resolve_command()
+    assert command[0] == sys.executable
+    assert "schemathesis.cli" in command[-1]

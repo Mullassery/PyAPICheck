@@ -76,7 +76,15 @@ def _resolve_command() -> list[str]:
             "Schemathesis is not installed. Install the MIT-licensed CLI with "
             '`pip install "pyapicheck[active]"` (or `pip install schemathesis`).'
         ) from exc
-    return [sys.executable, "-m", "schemathesis"]
+    # The package is importable but the console script is not on PATH (e.g. a
+    # venv invoked without activation). Schemathesis 4.x ships no
+    # ``schemathesis.__main__``, so ``python -m schemathesis`` fails; invoke the
+    # documented console-script entry point directly instead.
+    return [
+        sys.executable,
+        "-c",
+        "from schemathesis.cli import schemathesis; raise SystemExit(schemathesis())",
+    ]
 
 
 def run_active_tests(

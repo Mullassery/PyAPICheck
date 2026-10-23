@@ -13,3 +13,6 @@ __pycache__/
 .vscode/
 
 graphify-out/
+
+# Schemathesis run artifacts
+.schemathesis/
