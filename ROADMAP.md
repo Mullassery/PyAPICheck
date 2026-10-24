@@ -325,14 +325,18 @@ new operation).
 Goal: the actual differentiator. Do not start this before Phase 3/4 exist
 — the analyst has nothing to reason over without the graph and baseline.
 
-- [ ] Tool-use agent architecture: the analyst calls the platform's own
-      APIs (spec, traffic, baseline, graph, classification) as literal
-      tool invocations — no free-text speculation path in the design.
-- [ ] Mandatory citation: every claim in a finding links to the tool-call
-      result it came from; findings without a traceable citation don't ship.
-- [ ] Confidence + counter-evidence field ("what would change this
+- [x] Tool-use architecture (deterministic slice): `investigate` runs a
+      fixed, documented sequence of real platform API calls (`discover`,
+      `baseline`, `policies_recommend`) and records every call — no
+      free-text speculation path. The LLM planner that would choose tools
+      dynamically is still deferred (see below).
+- [x] Mandatory citation: every claim in a finding links to the tool-call
+      result it came from (`tool_calls[citation]`); findings without a
+      traceable citation are not produced.
+- [x] Confidence + counter-evidence field ("what would change this
       conclusion") on every finding.
-- [ ] `pyapicheck investigate <path-or-agent>` CLI command.
+- [x] `pyapicheck investigate <spec> <historical-log> <current-log>
+      [--agent NAME] [--json]` CLI command.
 
 **Demo:** a real finding, on real data, that a security engineer verifies
 correct by clicking through the citations in under a minute — not a demo
@@ -341,6 +345,14 @@ script with a scripted right answer.
 **Hard gate:** if findings can't be verified this way, do not proceed to
 Phase 6. An unverifiable AI finding is worse than no finding (kills trust,
 per the risk register in the strategy doc).
+
+**What shipped vs. what is deferred:** `python/pyapicheck/investigate.py`
+ships the cited, confidence-scored, counter-evidence-bearing analyst over a
+deterministic tool sequence. It is intentionally not called an AI analyst —
+no model chooses the tools or writes the prose yet. The remaining Phase 5
+work is the planner itself: choose tools dynamically, and gate any
+provider call behind an explicit opt-in. When that lands, it will use the
+same finding/citation contract this deterministic slice already tests.
 
 ---
 

@@ -17,6 +17,7 @@ from importlib import metadata as _metadata
 
 from . import _core
 from .active import ActiveTestResult, SchemathesisUnavailable, run_active_tests
+from .investigate import investigate
 from .lint import LinterUnavailable, LintResult, run_lint
 
 
@@ -208,6 +209,7 @@ __all__ = [
     "diff",
     "report",
     "baseline",
+    "investigate",
     "policies_validate",
     "policies_recommend",
     "policies_diff",

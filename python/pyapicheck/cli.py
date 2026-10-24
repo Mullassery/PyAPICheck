@@ -14,6 +14,7 @@ from . import graph_add_agent as _graph_add_agent
 from . import graph_blast_radius as _graph_blast_radius
 from . import graph_load_mcp as _graph_load_mcp
 from . import graph_reachable as _graph_reachable
+from . import investigate as _investigate
 from . import persist as _persist
 from . import policies_diff as _policies_diff
 from . import policies_emit_envoy as _policies_emit_envoy
@@ -437,6 +438,47 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_investigate(args: argparse.Namespace) -> int:
+    try:
+        result = _investigate(
+            args.spec,
+            args.historical_log,
+            args.current_log,
+            known_agents=args.agent or [],
+        )
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    findings = result["findings"]
+    print(
+        f"\n{len(findings)} cited finding(s) "
+        f"({len(result['tool_calls'])} tool call(s) recorded)\n"
+    )
+    for finding in findings:
+        print(
+            f"[{finding['severity'].upper()}] {finding['title']} "
+            f"(confidence={finding['confidence']:.2f})"
+        )
+        print(f"  {finding['summary']}")
+        for evidence in finding["evidence"]:
+            call = result["tool_calls"][evidence["citation"]]
+            print(f"  evidence: {evidence['claim']} <- {call['tool']}")
+        print(f"  counter-evidence: {finding['counter_evidence']}")
+        if "remediation" in finding:
+            print("  remediation: see cited Cedar recommendations")
+        print()
+    print("Limits:")
+    for limit in result["limits"]:
+        print(f"  - {limit}")
+    print()
+    return 0
+
+
 def _cmd_graph_load_mcp(args: argparse.Namespace) -> int:
     try:
         servers = _graph_load_mcp(args.db_url, args.config, args.timeout)
@@ -649,6 +691,27 @@ def main(argv=None) -> int:
         "--json", action="store_true", help="Output the raw baseline report as JSON"
     )
     baseline_parser.set_defaults(func=_cmd_baseline)
+
+    investigate_parser = sub.add_parser(
+        "investigate",
+        help="Cited, deterministic security investigation over a spec and two traffic windows",
+    )
+    investigate_parser.add_argument("spec", help="Path to an OpenAPI 3.x YAML or JSON file")
+    investigate_parser.add_argument(
+        "historical_log", help="Path to an NDJSON gateway access log covering the baseline window"
+    )
+    investigate_parser.add_argument(
+        "current_log", help="Path to an NDJSON gateway access log covering the window to evaluate"
+    )
+    investigate_parser.add_argument(
+        "--agent",
+        action="append",
+        help="Identity known to be a declared agent (repeatable)",
+    )
+    investigate_parser.add_argument(
+        "--json", action="store_true", help="Output the full cited report as JSON"
+    )
+    investigate_parser.set_defaults(func=_cmd_investigate)
 
     policies_parser = sub.add_parser(
         "policies", help="Cedar policy validation, recommendations, and drift detection"
