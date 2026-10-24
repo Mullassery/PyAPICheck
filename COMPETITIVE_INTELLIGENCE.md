@@ -56,6 +56,8 @@ starts, and record the decision in the PR or changelog.
 
 ## OSS gap analysis — 2026-10-24
 
+**What matters most here:** live capture and a gate-worthy spec diff. Export-only NDJSON and a shallow diff keep it an offline analyzer; add gateway or mirror capture and oasdiff-class breaking-change detection before claiming API risk scoring in CI.
+
 Scope: PyAPICheck assessed against four maintained API-security/testing tools on OpenAPI/Postman discovery, evidence quality, spec drift, observed-vs-declared traffic analysis, active testing, agent/MCP modeling, policy output, and CI integration. DAST exploit breadth and gateway enforcement were assessed only to define scope boundaries.
 
 ### Comparable OSS projects
