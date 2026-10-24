@@ -189,7 +189,7 @@ source spec as the artifact location.
 - [CHANGELOG.md](CHANGELOG.md) — Version history and release notes.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Development setup, testing, and contribution guidelines.
 - [ROADMAP.md](ROADMAP.md) — Phase-by-phase plan and what's done vs. deferred.
-- [ROADMAP_HONEST.md](ROADMAP_HONEST.md) — Honest assessment of maturity, gaps, and technical debt.
+- [docs/internal/ROADMAP_HONEST.md](docs/internal/ROADMAP_HONEST.md) — Honest assessment of maturity, gaps, and technical debt.
 - [SECURITY.md](SECURITY.md) — Vulnerability reporting.
 
 ## Known issues and deferred work
@@ -200,7 +200,7 @@ source spec as the artifact location.
 **Rejected / deferred:**
 - DAST parity or live enforcement.
 
-Full shipped/blocked/rejected detail: [`QUEUE_STATUS.md`](QUEUE_STATUS.md).
+Full shipped/blocked/rejected detail: [`docs/internal/QUEUE_STATUS.md`](docs/internal/QUEUE_STATUS.md).
 
 ## Contributing
 

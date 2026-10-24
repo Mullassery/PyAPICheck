@@ -7,7 +7,7 @@ Entries below are reconstructed from git history and `ROADMAP.md`'s
 phase records, not a changelog that was maintained turn-by-turn as
 commits landed. **No git tags exist for any of these versions** — version
 numbers come from `Cargo.toml`/`pyproject.toml` bumps in the commits
-noted, not from `git tag`/GitHub Releases. See `ROADMAP_HONEST.md` for
+noted, not from `git tag`/GitHub Releases. See `docs/internal/ROADMAP_HONEST.md` for
 that gap.
 
 ## [Unreleased]
@@ -65,7 +65,7 @@ that gap.
   Python 3.12 venv using the same wheel. Did not add an OS matrix — the
   `rust` job's Postgres/AGE service container is Linux-runner-only, and
   the `maturin-build` job's cross-platform behavior can't be verified
-  from this sandbox, so that gap is left open (see `ROADMAP_HONEST.md`).
+  from this sandbox, so that gap is left open (see `docs/internal/ROADMAP_HONEST.md`).
   Ran `actionlint` on the changed workflow file (clean).
 
 - CI: added a `security` job (`cargo audit` against the RustSec advisory
@@ -74,7 +74,7 @@ that gap.
   installs the built wheel and runs `pytest tests/ -v`.
 - Added `.github/dependabot.yml` (cargo, pip, github-actions ecosystems).
 - Added `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
-  `ROADMAP_HONEST.md`, and GitHub issue/PR templates.
+  `docs/internal/ROADMAP_HONEST.md`, and GitHub issue/PR templates.
 - `.gitignore`: added `.pytest_cache/`, `.env`, `.idea/`, `.vscode/`;
   broadened the egg-info pattern.
 

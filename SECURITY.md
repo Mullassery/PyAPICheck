@@ -45,6 +45,6 @@ receive backported fixes.
   Treat generated Envoy/Cedar output the same as any other config you'd
   review before deploying.
 
-See `ROADMAP_HONEST.md` for a current, honest list of known bugs and
+See `docs/internal/ROADMAP_HONEST.md` for a current, honest list of known bugs and
 unaddressed technical debt (including dependency risk) — some of those
 may have security implications even if not formally classified as CVEs.

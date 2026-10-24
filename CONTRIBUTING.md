@@ -70,7 +70,7 @@ not `cargo build -p pyapicheck-bindings`.
   standard this repo holds itself to — new work should match it.
 - **No stub code that pretends to work.** If a feature is incomplete,
   either don't merge it, or clearly gate/document it as incomplete (see
-  `ROADMAP_HONEST.md`) — don't ship a function that silently returns
+  `docs/internal/ROADMAP_HONEST.md`) — don't ship a function that silently returns
   fake/empty data.
 - Rust code must pass `cargo clippy -- -D warnings` and `cargo fmt`;
   there's no separate style guide beyond that.
@@ -79,7 +79,7 @@ not `cargo build -p pyapicheck-bindings`.
 
 - `ROADMAP.md` — the phase-by-phase engineering plan, including what's
   explicitly deferred and why. Read this before proposing new scope.
-- `ROADMAP_HONEST.md` — current bugs, tech debt, and untested paths. If
+- `docs/internal/ROADMAP_HONEST.md` — current bugs, tech debt, and untested paths. If
   you're looking for something to work on, this is the honest list.
 
 ## Reporting issues / proposing features
