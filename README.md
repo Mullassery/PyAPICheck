@@ -4,7 +4,7 @@ Every API risk score traces back to a named, checkable reason—never a black-bo
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-> **Not to be confused with [PyNetworkIntel](https://github.com/Mullassery/PyNetworkIntel):** PyNetworkIntel discovers network hosts/services; PyAPICheck scores API security risk (real traffic, agent/MCP, Cedar policy).
+> **Not to be confused with [PyNetworkIntel](../PyNetworkIntel):** PyNetworkIntel discovers network hosts/services; PyAPICheck scores API security risk (real traffic, agent/MCP, Cedar policy).
 
 ## Which project do I need?
 
@@ -12,20 +12,20 @@ Part of the Mullassery open-source family. These tools have similar names — he
 
 | If you need to… | Use |
 | --- | --- |
-| Build a repository's dependency graph and match it against vulnerability advisories (Python, Rust, Node, containers) | [PyDeepMesh](https://github.com/Mullassery/PyDeepMesh) |
-| Understand *why* a Python dependency exists, who added it, and whether it is actually used | [PyDependencyCheck](https://github.com/Mullassery/PyDependencyCheck) |
-| Statically analyze a **dbt** project (risky tests, test blast radius, cost) | [PyDBTGuard](https://github.com/Mullassery/PyDBTGuard) |
-| Statically analyze **Apache Beam / Dataflow** pipelines (cost, hot keys, reliability) | [PyBeamGuard](https://github.com/Mullassery/PyBeamGuard) |
-| Validate **Airflow** DAGs and dbt runs | [PyAirflowTester](https://github.com/Mullassery/PyAirflowTester) |
-| Simulate cascading-failure **blast radius** across infrastructure, data pipelines, and AI systems | [PyBlastRadius](https://github.com/Mullassery/PyBlastRadius) |
-| Check the **quality of the data itself** at runtime (schema, drift, anomalies) | [StatGuardian](https://github.com/Mullassery/StatGuardian) |
-| Discover **devices, services, and vulnerabilities on a network** | [PyNetworkIntel](https://github.com/Mullassery/PyNetworkIntel) |
-| Discover and score **API security** risk (real traffic, agent/MCP, Cedar policy) | [PyAPICheck](https://github.com/Mullassery/PyAPICheck) |
-| Trace and root-cause **AI agent** failures | [PyAgentHound](https://github.com/Mullassery/PyAgentHound) |
-| Diagnose **RAG retrieval** failures | [PyVectorHound](https://github.com/Mullassery/PyVectorHound) |
-| Orchestrate **local, dependency-aware tasks** (DAG scheduler + content-addressed cache) | [PyTaskWireCheck](https://github.com/Mullassery/PyTaskWireCheck) |
+| Build a repository's dependency graph and match it against vulnerability advisories (Python, Rust, Node, containers) | [PyDeepMesh](../PyDeepMesh) |
+| Understand *why* a Python dependency exists, who added it, and whether it is actually used | [PyDependencyCheck](../PyDependencyCheck) |
+| Statically analyze a **dbt** project (risky tests, test blast radius, cost) | [PyDBTGuard](../PyDBTGuard) |
+| Statically analyze **Apache Beam / Dataflow** pipelines (cost, hot keys, reliability) | [PyBeamGuard](../PyBeamGuard) |
+| Validate **Airflow** DAGs and dbt runs | [PyAirflowTester](../PyAirflowTester) |
+| Simulate cascading-failure **blast radius** across infrastructure, data pipelines, and AI systems | [PyBlastRadius](../PyBlastRadius) |
+| Check the **quality of the data itself** at runtime (schema, drift, anomalies) | [StatGuardian](../StatGuardian) |
+| Discover **devices, services, and vulnerabilities on a network** | [PyNetworkIntel](../PyNetworkIntel) |
+| Discover and score **API security** risk (real traffic, agent/MCP, Cedar policy) | [PyAPICheck](../PyAPICheck) |
+| Trace and root-cause **AI agent** failures | [PyAgentHound](../PyAgentHound) |
+| Diagnose **RAG retrieval** failures | [PyVectorHound](../PyVectorHound) |
+| Orchestrate **local, dependency-aware tasks** (DAG scheduler + content-addressed cache) | [PyTaskWireCheck](../PyTaskWireCheck) |
 
-[Browse all projects →](https://github.com/Mullassery?tab=repositories)
+[Browse all projects →](../Mullassery-profile)
 
 ## What it is
 
