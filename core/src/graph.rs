@@ -149,7 +149,7 @@ pub async fn ensure_graph(pool: &PgPool) -> Result<(), String> {
     }
 
     if !graph_exists(pool).await? {
-        if let Err(e) = sqlx::query(&format!("SELECT create_graph('{GRAPH_NAME}')"))
+        if let Err(e) = sqlx::query(sqlx::AssertSqlSafe(format!("SELECT create_graph('{GRAPH_NAME}')")))
             .execute(pool)
             .await
         {
@@ -173,7 +173,9 @@ async fn ensure_label(pool: &PgPool, create_fn: &str, label: &str) -> Result<(),
     if label_exists(pool, label).await? {
         return Ok(());
     }
-    if let Err(e) = sqlx::query(&format!("SELECT {create_fn}('{GRAPH_NAME}', '{label}')"))
+    if let Err(e) = sqlx::query(sqlx::AssertSqlSafe(format!(
+        "SELECT {create_fn}('{GRAPH_NAME}', '{label}')"
+    )))
         .execute(pool)
         .await
     {
@@ -223,7 +225,7 @@ pub async fn upsert_vertex(pool: &PgPool, label: VertexLabel, name: &str) -> Res
         $$) as (n agtype)",
         label = label.as_str(),
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .execute(pool)
         .await
         .map_err(|e| format!("failed to upsert {} vertex {name:?}: {e}", label.as_str()))?;
@@ -254,7 +256,7 @@ pub async fn upsert_edge(
         to_label = to_label.as_str(),
         edge = edge.as_str(),
     );
-    let rows = sqlx::query(&query)
+    let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .fetch_all(pool)
         .await
         .map_err(|e| format!("failed to upsert edge {from_name:?} -> {to_name:?}: {e}"))?;
@@ -286,7 +288,7 @@ pub async fn upsert_agent(pool: &PgPool, agent: &AgentIdentity) -> Result<(), St
             RETURN n
         $$) as (n agtype)"
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .execute(pool)
         .await
         .map_err(|e| format!("failed to set agent properties for {:?}: {e}", agent.name))?;
@@ -342,7 +344,7 @@ pub async fn upsert_mcp_server(pool: &PgPool, server: &DiscoveredMcpServer) -> R
             RETURN n
         $$) as (n agtype)"
     );
-    sqlx::query(&query).execute(pool).await.map_err(|e| {
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str())).execute(pool).await.map_err(|e| {
         format!(
             "failed to set tool properties for {:?}: {e}",
             server.config.name
@@ -352,7 +354,7 @@ pub async fn upsert_mcp_server(pool: &PgPool, server: &DiscoveredMcpServer) -> R
 }
 
 async fn traverse(pool: &PgPool, query: &str) -> Result<Vec<ReachableNode>, String> {
-    let rows = sqlx::query(query)
+    let rows = sqlx::query(sqlx::AssertSqlSafe(query))
         .fetch_all(pool)
         .await
         .map_err(|e| format!("graph traversal failed: {e}"))?;
@@ -519,7 +521,7 @@ mod tests {
             $$) as (t agtype, s agtype)",
             name_lit = cypher_string(&server.config.name).unwrap(),
         );
-        let row = sqlx::query(&query).fetch_one(&pool).await.unwrap();
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str())).fetch_one(&pool).await.unwrap();
         let tools: String = row.try_get("tools").unwrap();
         let status: String = row.try_get("status").unwrap();
         assert_eq!(tools, "list_refunds,process_refund");

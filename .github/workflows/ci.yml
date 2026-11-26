@@ -66,7 +66,7 @@ jobs:
 
   maturin-build:
     name: maturin build (python extension) + pytest
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.python-version == '3.9' && 'ubuntu-22.04' || 'ubuntu-latest' }}
     # abi3 (bindings/Cargo.toml: pyo3 "abi3-py39") means one compiled
     # extension module works across CPython minors — this matrix verifies
     # that claim by running the same built wheel's pytest suite under the
